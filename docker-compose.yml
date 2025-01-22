@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:15
+    container_name: container_db
+    environment:
+      - POSTGRES_DB=fastapi_itm_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    env_file:
+      - .env-not-dev
+    ports:
+      - "5433:5432" # первая цифра на моём, вторая в контейнере
+    # command: sh -c "env && docker-entrypoint.sh postgres"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: container_rabbitmq
+    env_file:
+      - .env-not-dev
+    ports:
+      - "5673:5672" # первая цифра на моём, вторая в контейнере
+      - "15672:15672"  # Веб-интерфейс RabbitMQ
+
+  celery:
+    image: celery_image
+    build:
+      context: .
+    container_name: container_celery
+    command: ["/doc/docker_scripts/celery.sh"]
+    env_file:
+      - .env-not-dev
+    depends_on:
+      - rabbitmq
+    volumes:
+      - shared_images:/doc/documents
+
+  app:
+    image: app_image
+    build:
+      context: .
+    container_name: container_app
+    command: ["/doc/docker_scripts/app.sh"]
+    env_file:
+      - .env-not-dev
+    ports:
+      - "3333:8000"
+    depends_on:
+      - db
+      - rabbitmq
+    volumes:
+      - shared_images:/doc/documents
+
+volumes:
+  shared_images:
+    driver: local
+  shared_data:
+    driver: local
