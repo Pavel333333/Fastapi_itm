@@ -2,6 +2,7 @@ from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
+
     MODE: Literal['DEV', 'TEST']
 
     DB_USER: str
@@ -9,6 +10,10 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: int
     DB_NAME: str
+
+    RABBITMQ_HOST: str
+    RABBITMQ_USER: str
+    RABBITMQ_PASS: str
 
 
     @property

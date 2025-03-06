@@ -70,11 +70,22 @@ class FuncsForDocuments:
         return JSONResponse(content='Файл загружен в папку documents на диске и создана запись в базе',
                             status_code=status.HTTP_200_OK)
 
-
     @staticmethod
     async def check_elem_in_db_by_id(db_table_name, id: int, db: AsyncSession):
 
         query_elem = await db.execute(select(db_table_name).where(db_table_name.id == id))
+        elem = query_elem.scalars().first()
+
+        if not elem:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Такой записи нет в базе данных')
+
+        return elem
+
+
+    @staticmethod
+    async def check_elem_in_db_by_id_doc(db_table_name, id_doc: int, db: AsyncSession):
+
+        query_elem = await db.execute(select(db_table_name).where(db_table_name.id_doc == id_doc))
         elem = query_elem.scalars().first()
 
         if not elem:
@@ -100,7 +111,7 @@ class FuncsForDocuments:
     @classmethod
     async def get_text(cls, id: int, db: AsyncSession = get_db_async_session):
 
-        elem_for_get_text = await cls.check_elem_in_db_by_id(DocumentText, id, db)
+        elem_for_get_text = await cls.check_elem_in_db_by_id_doc(DocumentText, id, db)
 
         text = elem_for_get_text.text
 

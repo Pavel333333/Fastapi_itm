@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Проверка на существование файла wait-for-it.sh
+# это скрипт для ожидания готовности одного сервиса до запуска другого
+# Этот подход особенно полезен, когда контейнеры зависят друг от друга,
+# и один контейнер не может начать работу, пока другой не станет доступен.
 if [ ! -f /usr/local/bin/wait-for-it ]; then
     echo "wait-for-it не найден, скачиваю..."
     curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it

@@ -10,7 +10,7 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-RUN chmod a+x /doc/docker_scripts/*.sh
+RUN chmod a+x /doc/docker_scripts/*.sh  # это команда Unix/Linux, которая изменяет права доступа к файлам и директориям
 
 #RUN apt-get update && apt-get install -y \
 #    tesseract-ocr \

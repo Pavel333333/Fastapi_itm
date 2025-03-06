@@ -1,7 +1,13 @@
+networks:
+  mynetwork:
+    external: true
+
+# docker network create mynetwork - перед созданием контейнеров создаётся общая сеть для трёх проектов
+
 services:
-  db:
+  db_fastapi:
     image: postgres:15
-    container_name: container_db
+    container_name: container_fastapi_db
     environment:
       - POSTGRES_DB=fastapi_itm_db
       - POSTGRES_USER=postgres
@@ -9,23 +15,27 @@ services:
     env_file:
       - .env-not-dev
     ports:
-      - "5433:5432" # первая цифра на моём, вторая в контейнере
+      - "5433:5432" # первая цифра внешний порт, вторая - какой порт слушается внутри контейнера
     # command: sh -c "env && docker-entrypoint.sh postgres"
+    networks:
+      - mynetwork
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: container_rabbitmq
+    container_name: container_fastapi_rabbitmq
     env_file:
       - .env-not-dev
     ports:
-      - "5673:5672" # первая цифра на моём, вторая в контейнере
+      - "5673:5672" # первая цифра внешний порт, вторая - какой порт слушается внутри контейнера
       - "15672:15672"  # Веб-интерфейс RabbitMQ
+    networks:
+      - mynetwork
 
   celery:
     image: celery_image
     build:
       context: .
-    container_name: container_celery
+    container_name: container_fastapi_celery
     command: ["/doc/docker_scripts/celery.sh"]
     env_file:
       - .env-not-dev
@@ -33,22 +43,26 @@ services:
       - rabbitmq
     volumes:
       - shared_images:/doc/documents
+    networks:
+      - mynetwork
 
-  app:
-    image: app_image
-    build:
-      context: .
-    container_name: container_app
+  app_fastapi:
+    image: app_fastapi_itm
+    build:  # этот ключ указывает Docker Compose, что необходимо построить образ для данного сервиса на основе Dockerfile.
+      context: .  # путь к контексту сборки (build context) текущая директория, то есть искать докер нужно в корне проекта
+    container_name: container_fastapi_app
     command: ["/doc/docker_scripts/app.sh"]
     env_file:
       - .env-not-dev
     ports:
-      - "3333:8000"
+      - "3333:8000" # первая цифра внешний порт, вторая - какой порт слушается внутри контейнера
     depends_on:
-      - db
+      - db_fastapi
       - rabbitmq
     volumes:
       - shared_images:/doc/documents
+    networks:
+      - mynetwork
 
 volumes:
   shared_images:

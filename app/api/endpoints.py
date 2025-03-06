@@ -29,15 +29,19 @@ async def delete_doc(id: int, db: AsyncSession = Depends(get_db_async_session)):
              description='ручка принимает id документа, передаёт задание в селери, где с картинки считывается текст '
                          'и записывается в базу в таблицу DocumentText')
 def insert_text_in_db(request: DocDeleteRequest, background_tasks: BackgroundTasks):
-
-    id = request.id
+    """
+    Эндпоинт для запуска задачи анализа текста на изображении.
+    Принимает id документа и отправляет задачу в Celery через background_tasks.
+    """
+    id = request.id  # Извлекаем id из запроса
+    # Запускаем задачу Celery асинхронно через background_tasks
     background_tasks.add_task(get_text_from_foto.delay, id)
-
+    # Возвращаем подтверждение клиенту
     return ResponseModel(message='Задача отправлена', detail='Текст с картинки считывается и будет записан в базу')
 
 
 @router.get('/get_text/{id}', summary='выдача текста из базы',
-             description='ручка принимает id документа и возвращает текст из DocumentText')
+             description='ручка принимает id_doc документа и возвращает текст из DocumentText')
 async def get_text(id: int, db: AsyncSession = Depends(get_db_async_session)):
 
     """Описание ручки"""
