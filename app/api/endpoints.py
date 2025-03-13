@@ -44,6 +44,6 @@ def insert_text_in_db(request: DocDeleteRequest, background_tasks: BackgroundTas
              description='ручка принимает id_doc документа и возвращает текст из DocumentText')
 async def get_text(id: int, db: AsyncSession = Depends(get_db_async_session)):
 
-    """Описание ручки"""
+    """Ручка принимает один или несколько id файлов и выдаёт текст(-ы) из базы"""
 
     return await FuncsForDocuments.get_text(id, db)
