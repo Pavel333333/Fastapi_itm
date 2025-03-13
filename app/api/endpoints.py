@@ -13,7 +13,7 @@ router = APIRouter(prefix='/files', tags=['Files'])
                          'на диске в таблицу Documents')
 async def upload_doc(file: UploadFile = File(...), db: AsyncSession = Depends(get_db_async_session)):
 
-    """Описание ручки"""
+    """Ручка принимает файлы, проверяет, что это картинки, и загружает на диск файлы и информацию о них в базу"""
 
     return await FuncsForDocuments.upload(file, db)
 
