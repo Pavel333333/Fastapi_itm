@@ -21,7 +21,7 @@ async def upload_doc(file: UploadFile = File(...), db: AsyncSession = Depends(ge
                                                                             'удаляет его из базы и с диска')
 async def delete_doc(id: int, db: AsyncSession = Depends(get_db_async_session)):
 
-    """Описание ручки"""
+    """Ручка принимает один или несколько id картинок и удаляет их с диска и записи в базе"""
 
     return await FuncsForDocuments.delete(id, db)
 
