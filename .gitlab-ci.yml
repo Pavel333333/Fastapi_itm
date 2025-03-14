@@ -14,12 +14,15 @@ build-job:
 test-job:
   stage: test
   script:
+    # Очистка старых контейнеров
+    - docker stop fastapi_test test_db || true
+    - docker rm fastapi_test test_db || true
+    # Запуск тестовой базы
     - echo "DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db" > .env-not-dev
     - docker compose up -d test_db
-    - docker run -d --name fastapi_test -e DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db -e MODE=TEST app_fastapi_itm  # Убрали --network=host и -p
-    - sleep 5
-    - docker logs fastapi_test  # логи для отладки
-    - docker exec fastapi_test pytest -s -v
+    # Запуск FastAPI контейнера в той же сети
+    - docker compose run --name fastapi_test -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST app_fastapi_itm sh -c "sleep 5 && pytest -s -v"
+    # Остановка и очистка
     - docker stop fastapi_test
     - docker compose down
   rules:
