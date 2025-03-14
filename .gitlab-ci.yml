@@ -1,20 +1,31 @@
 stages:
   - build
-  - test
-  - deploy
 
+# Использование Docker-in-Docker
+services:
+  - docker:dind
+
+# Глобальные переменные
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+
+# Простой тестовый job для проверки Docker
 build-job:
   stage: build
   script:
+    - docker info  # Проверяем, работает ли Docker
     - docker build -t app_fastapi_itm .
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
-test-job:
-  stage: test
-  script:
-    - docker run --rm app_fastapi_itm pytest -s -v
-
-deploy-job:
-  stage: deploy
-  environment: production
-  script:
-    - docker compose up -d
+#test-job:
+#  stage: test
+#  script:
+#    - docker run --rm app_fastapi_itm pytest -s -v
+#
+#deploy-job:
+#  stage: deploy
+#  environment: production
+#  script:
+#    - docker compose up -d
