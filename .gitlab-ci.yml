@@ -14,10 +14,7 @@ build-job:
 test-job:
   stage: test
   script:
-    - export POSTGRES_USER=test_user
-    - export POSTGRES_PASSWORD=test_pass
-    - export POSTGRES_DB=test_db
-    - docker compose up -d test_db
+    - docker compose --env-file /dev/null up -d test_db
     - docker run -d --name fastapi_test --network=host -e DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db -e MODE=TEST -p 8001:8000 app_fastapi_itm
     - sleep 5
     - docker exec fastapi_test pytest -s -v
