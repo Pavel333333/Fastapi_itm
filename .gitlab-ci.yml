@@ -1,5 +1,6 @@
 stages:
   - build
+  - test
 
 # Простой тестовый job для проверки Docker
 build-job:
@@ -7,5 +8,17 @@ build-job:
   script:
     - docker info  # Проверяем, работает ли Docker
     - docker build -t app_fastapi_itm .
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+test-job:
+  stage: test
+  script:
+    - docker compose up -d test_db  # Запуск только тестовой базы
+    - docker run -d --name fastapi_test --network=host -e DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db -e MODE=TEST -p 8001:8000 app_fastapi_itm
+    - sleep 5
+    - docker exec fastapi_test pytest -s -v
+    - docker stop fastapi_test
+    - docker compose down
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'

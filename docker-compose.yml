@@ -20,6 +20,15 @@ services:
     networks:
       - mynetwork
 
+  test_db: # база для test-job в Gitlab CI/CD
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=test_user
+      - POSTGRES_PASSWORD=test_pass
+      - POSTGRES_DB=test_db
+    ports:
+      - "5433:5432"  # Отдельный порт, чтобы не конфликтовать с основной базой
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: container_fastapi_rabbitmq

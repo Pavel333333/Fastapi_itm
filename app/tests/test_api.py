@@ -1,5 +1,6 @@
 import io
 import os.path
+from pathlib import Path
 
 import aiofiles
 import pytest
@@ -12,13 +13,15 @@ from sqlalchemy import select
 from app.database import get_db_async_session, get_db_sync_session
 from app.db.models import Document, DocumentText
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+TEST_FILES_DIR = BASE_DIR / "tests" / "test_files"
 
 # @pytest.mark.asyncio(loop_scope="function")
 @pytest.mark.parametrize("url, file_name, status_code", [
-    ('/home/pavel/Downloads/gratis-png-yandex.png',
+    (str(TEST_FILES_DIR / 'gratis-png-yandex.png'),
      'gratis-png-yandex.png', 200),
-    ('/home/pavel/Downloads/d10c58e.jpeg', 'd10c58e.jpeg', 200),
-    ('/home/pavel/Downloads/SOLID.jpg', 'SOLID.jpg', 413),
+    (str(TEST_FILES_DIR / 'd10c58e.jpeg'), 'd10c58e.jpeg', 200),
+    (str(TEST_FILES_DIR / 'SOLID.jpg'), 'SOLID.jpg', 413),
 ])
 async def test_upload_doc_file_too_large(url, file_name, status_code, ac: AsyncClient):
 
@@ -34,13 +37,11 @@ async def test_upload_doc_file_too_large(url, file_name, status_code, ac: AsyncC
 
     assert response.status_code == status_code
 
-
 @pytest.mark.asyncio(loop_scope="function")
 @pytest.mark.parametrize("url, file_name, status_code", [
-    ('/home/pavel/Downloads/fgh.jpeg',
-     'fgh.jpeg', 200),
-    ('/home/pavel/Downloads/Untitled Document 1', 'Untitled Document 1', 415),
-    ('/home/pavel/Downloads/Основные команды Linux', 'Основные команды Linux', 415),
+    (str(TEST_FILES_DIR / 'fgh.jpeg'), 'fgh.jpeg', 200),
+    (str(TEST_FILES_DIR / 'Untitled Document 1'), 'Untitled Document 1', 415),
+    (str(TEST_FILES_DIR / 'Основные команды Linux'), 'Основные команды Linux', 415),
 ])
 async def test_upload_doc_file_image(url, file_name, status_code, ac: AsyncClient):
 
@@ -57,13 +58,12 @@ async def test_upload_doc_file_image(url, file_name, status_code, ac: AsyncClien
 
     assert response.status_code == status_code
 
-
 @pytest.mark.asyncio(loop_scope="function")
 @pytest.mark.parametrize("url, file_name, status_code, must_in_db", [
-    ('/home/pavel/Downloads/SOLID.jpg', 'SOLID.jpg', 413, False),
-    ('/home/pavel/Downloads/Untitled Document 1', 'Untitled Document 1', 415, False),
-    ('/home/pavel/Downloads/solid.png', 'solid.png', 200, True),
-    ('/home/pavel/Downloads/dbc582da9e391cca96f4ad0c978154f7.png',
+    (str(TEST_FILES_DIR / 'SOLID.jpg'), 'SOLID.jpg', 413, False),
+    (str(TEST_FILES_DIR / 'Untitled Document 1'), 'Untitled Document 1', 415, False),
+    (str(TEST_FILES_DIR / 'solid.png'), 'solid.png', 200, True),
+    (str(TEST_FILES_DIR / 'dbc582da9e391cca96f4ad0c978154f7.png'),
      'dbc582da9e391cca96f4ad0c978154f7.png', 200, True),
 ])
 async def test_upload_doc_check_add_file_to_db(url, file_name, status_code, must_in_db, ac: AsyncClient):
