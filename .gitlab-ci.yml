@@ -18,16 +18,16 @@ test-job:
         echo "Waiting for test_db to be ready..."
         sleep 2
       done
-    # Передаём дамп и выполняем тесты
+    # Передаём дамп с фильтрацией и выполняем тесты
     - |
-      cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | docker run --rm -i \
+      sed 's/transaction_timeout/idle_in_transaction_session_timeout/g' $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | docker run --rm -i \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "cat > /tmp/test_dump.sql && chmod 644 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+        sh -c "cat > /tmp/test_dump.sql && chmod 644 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db --no-owner -f /tmp/test_dump.sql && apt-get update && apt-get install -y python3 python3-pip && pip install pytest && pytest -v /app"
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
