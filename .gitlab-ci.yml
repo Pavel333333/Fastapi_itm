@@ -3,50 +3,31 @@ stages: [.pre, build, test, deploy, .post]
 build-job:
   stage: build
   script:
-    - docker info
     - docker build -t app_fastapi_itm .
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
 test-job:
   stage: test
-  before_script:
-    - mkdir -p $(dirname $CI_PROJECT_DIR/fastapi_itm_test_dump.sql)
-    - |
-      if [ ! -f "$CI_PROJECT_DIR/fastapi_itm_test_dump.sql" ]; then
-        echo "Dump file not found, creating empty placeholder"
-        touch $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
-      fi
   script:
-    - docker stop fastapi_test || true && docker rm fastapi_test || true
     - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev
     - docker compose up -d test_db
+    # Ожидаем готовности PostgreSQL
     - |
-      echo "CI_PROJECT_DIR: $CI_PROJECT_DIR"
-      ls -la $CI_PROJECT_DIR
-      echo "Checking dump file:"
-      ls -la $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
-      echo "Checking file content on host:"
-      head -n 10 $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
-
-      # Остановка всех контейнеров перед тестом
-      docker compose down -v || true
-      docker network prune -f || true
-      docker volume prune -f || true
-
-      # Перезапуск базы данных
-      docker compose up -d test_db
-
-      # Передача дампа через STDIN и выполнение тестов
-      cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | docker run --rm \
-        -i \
+      until docker run --rm --network fastapi_default postgres:15 pg_isready -h test_db -U test_user; do
+        echo "Waiting for test_db to be ready..."
+        sleep 2
+      done
+    # Передаём дамп и выполняем тесты
+    - |
+      cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | docker run --rm -i \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "cat > /tmp/test_dump.sql && chmod 644 /tmp/test_dump.sql && ls -la /tmp/ && head -n 10 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+        sh -c "cat > /tmp/test_dump.sql && chmod 644 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
