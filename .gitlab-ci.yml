@@ -14,10 +14,6 @@ test-job:
     - docker stop fastapi_test || true && docker rm fastapi_test || true  # Остановка и удаление старого контейнера
     - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev  # Создание временного .env для docker compose
     - docker compose up -d test_db  # Запуск тестовой базы
-    # Создаём минимальный alembic.ini с правильным URL
-    - echo "[alembic]" > test_alembic.ini
-    - echo "script_location = migration" >> test_alembic.ini
-    - echo "sqlalchemy.url = postgres://test_user:test_pass@test_db:5432/test_db" >> test_alembic.ini
     - |
       docker run --rm \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
@@ -36,12 +32,11 @@ test-job:
         -e TEST_DB_PORT=5432 \
         -e TEST_DB_NAME=test_db \
         --network fastapi_default \
-        -v $(pwd)/test_alembic.ini:/doc/test_alembic.ini \
         app_fastapi_itm \
         sh -c "curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it && \
                chmod +x /usr/local/bin/wait-for-it && \
                sleep 15 && \
-               wait-for-it test_db:5432 --timeout=60 -- alembic -c /doc/test_alembic.ini upgrade head && \
+               wait-for-it test_db:5432 --timeout=60 -- alembic -x sqlalchemy.url=postgres://test_user:test_pass@test_db:5432/test_db upgrade head && \
                pytest -v"
     - docker compose down  # Остановка тестовой базы
   rules:
