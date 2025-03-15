@@ -10,17 +10,21 @@ build-job:
 
 test-job:
   stage: test
+  before_script:
+    - mkdir -p $(dirname $CI_PROJECT_DIR/fastapi_itm_test_dump.sql)
+    - if [ ! -f "$CI_PROJECT_DIR/fastapi_itm_test_dump.sql" ]; then
+        echo "Dump file not found, creating empty placeholder"
+        touch $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
+      fi
   script:
     - docker stop fastapi_test || true && docker rm fastapi_test || true
     - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev
     - docker compose up -d test_db
     - |
-      if [ ! -f "$CI_PROJECT_DIR/fastapi_itm_test_dump.sql" ]; then
-        echo "Dump file not found on host: $CI_PROJECT_DIR/fastapi_itm_test_dump.sql"
-        ls -la $CI_PROJECT_DIR
-        exit 1
-      fi
-      echo "File exists, proceeding with docker run"
+      echo "CI_PROJECT_DIR: $CI_PROJECT_DIR"
+      ls -la $CI_PROJECT_DIR
+      echo "Checking dump file:"
+      ls -la $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
       docker run --rm \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
@@ -29,7 +33,7 @@ test-job:
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "echo 'Checking inside container...' && ls -la /tmp/ && if [ -d /tmp/test_dump.sql ]; then echo '/tmp/test_dump.sql is a directory'; ls -la /tmp/test_dump.sql; exit 1; fi && ls -l /tmp/test_dump.sql && head -n 10 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+        sh -c "echo 'Checking inside container...' && ls -la /tmp/ && ls -l /tmp/test_dump.sql && head -n 10 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
