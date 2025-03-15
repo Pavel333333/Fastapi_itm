@@ -23,6 +23,14 @@ test-job:
       docker run --rm \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
+        -e DB_USER=dummy_user \
+        -e DB_PASSWORD=dummy_pass \
+        -e DB_HOST=dummy_host \
+        -e DB_PORT=5432 \
+        -e DB_NAME=dummy_db \
+        -e RABBITMQ_HOST=dummy_host \
+        -e RABBITMQ_USER=dummy_user \
+        -e RABBITMQ_PASS=dummy_pass \
         -e TEST_DB_USER=test_user \
         -e TEST_DB_PASSWORD=test_pass \
         -e TEST_DB_HOST=test_db \
