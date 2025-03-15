@@ -29,8 +29,9 @@ test-job:
       echo "Checking file content on host:"
       head -n 10 $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
 
-      # Остановка всех контейнеров и удаление volumes
+      # Остановка всех контейнеров, удаление volumes и очистка сети
       docker compose down -v || true
+      docker network prune -f || true
 
       # Даём Docker время на освобождение ресурсов
       sleep 5
