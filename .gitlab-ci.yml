@@ -27,7 +27,7 @@ test-job:
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "cat > /tmp/test_dump.sql && chmod 644 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db --no-owner -f /tmp/test_dump.sql && apt-get update && apt-get install -y python3 python3-pip && pip install pytest && pytest -v /app"
+        sh -c "cat > /tmp/test_dump.sql && chmod 644 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql 2>/dev/null && apt-get update && apt-get install -y python3 python3-pip && pip install pytest && pytest -v /app"
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
