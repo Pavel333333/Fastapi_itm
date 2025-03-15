@@ -14,10 +14,20 @@ test-job:
     - docker stop fastapi_test || true && docker rm fastapi_test || true  # Остановка и удаление старого контейнера
     - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev  # Создание временного .env
     - docker compose up -d test_db  # Запуск тестовой базы
+    # Создаём временный env.py для тестов
+    - echo 'from alembic import context' > test_env.py
+    - echo 'from sqlalchemy import engine_from_config, pool' >> test_env.py
+    - echo 'config = context.config' >> test_env.py
+    - echo 'config.set_main_option("sqlalchemy.url", "postgres://test_user:test_pass@test_db:5432/test_db")' >> test_env.py
+    - echo 'connectable = engine_from_config(config.get_section(config.config_ini_section, {}), prefix="sqlalchemy.", poolclass=pool.NullPool)' >> test_env.py
+    - echo 'with connectable.connect() as connection:' >> test_env.py
+    - echo '    context.configure(connection=connection, target_metadata=None)' >> test_env.py
+    - echo '    with context.begin_transaction():' >> test_env.py
+    - echo '        context.run_migrations()' >> test_env.py
+    # Запуск тестов с монтированием временного env.py
     - |
       docker run --rm \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
-        -e ALEMBIC_SQLALCHEMY_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
         -e DB_USER=dummy_user \
         -e DB_PASSWORD=dummy_pass \
@@ -33,6 +43,7 @@ test-job:
         -e TEST_DB_PORT=5432 \
         -e TEST_DB_NAME=test_db \
         --network fastapi_default \
+        -v $(pwd)/test_env.py:/doc/migration/env.py \
         app_fastapi_itm \
         sh -c "curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it && \
                chmod +x /usr/local/bin/wait-for-it && \
