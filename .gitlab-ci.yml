@@ -26,15 +26,17 @@ test-job:
       ls -la $CI_PROJECT_DIR
       echo "Checking dump file:"
       ls -la $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
+      echo "Checking file content on host:"
+      head -n 10 $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
       docker run --rm \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
-        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/tmp/test_dump.sql \
+        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/tmp/test_dump.sql:ro \
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "echo 'Checking inside container...' && ls -la /tmp/ && ls -l /tmp/test_dump.sql && head -n 10 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+        sh -c "if [ -d /tmp/test_dump.sql ]; then echo 'Removing incorrect directory'; rm -rf /tmp/test_dump.sql; fi && ls -la /tmp/ && ls -l /tmp/test_dump.sql && head -n 10 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
