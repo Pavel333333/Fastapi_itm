@@ -20,10 +20,9 @@ test-job:
     # Запуск тестовой базы
     - echo "DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db" > .env-not-dev
     - docker compose up -d test_db
-    # Запуск FastAPI контейнера с правильной сетью
-    - docker run -d --name fastapi_test --network fastapi_default -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST app_fastapi_itm
-    - sleep 5
-    - docker exec fastapi_test sh -c "wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head && pytest -s -v"
+    # Запуск FastAPI контейнера с переопределённым command
+    - docker run -d --name fastapi_test --network fastapi_default -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST app_fastapi_itm sh -c "sleep 5 && wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head && pytest -s -v"
+    - sleep 5  # Дополнительная задержка для завершения тестов
     - docker stop fastapi_test
     - docker compose down
   rules:
