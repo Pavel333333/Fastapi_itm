@@ -12,7 +12,8 @@ test-job:
   stage: test
   before_script:
     - mkdir -p $(dirname $CI_PROJECT_DIR/fastapi_itm_test_dump.sql)
-    - if [ ! -f "$CI_PROJECT_DIR/fastapi_itm_test_dump.sql" ]; then
+    - |
+      if [ ! -f "$CI_PROJECT_DIR/fastapi_itm_test_dump.sql" ]; then
         echo "Dump file not found, creating empty placeholder"
         touch $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
       fi
