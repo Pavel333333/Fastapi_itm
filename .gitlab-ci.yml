@@ -18,17 +18,13 @@ test-job:
       docker run --rm \
         -e POSTGRES_USER=test_user \
         -e POSTGRES_PASSWORD=test_pass \
-        --network fastapi_default \
-        postgres:15 \
-        sh -c "sleep 15 && psql -h test_db -U test_user -d test_db -w -f /builds/pashakuznecov1977/fastapi/fastapi_itm_test_dump.sql"
-    - |
-      docker run --rm \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
         -v $(pwd)/app:/app \
+        -v $(pwd)/fastapi_itm_test_dump.sql:/dump.sql \
         --network fastapi_default \
         app_fastapi_itm \
-        pytest -v
+        sh -c "sleep 15 && psql -h test_db -U test_user -d test_db -w -f /dump.sql && pytest -v"
     - docker compose down  # Остановка тестовой базы
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
