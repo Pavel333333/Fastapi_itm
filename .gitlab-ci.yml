@@ -41,7 +41,7 @@ test-job:
         sh -c "curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it && \
                chmod +x /usr/local/bin/wait-for-it && \
                sleep 5 && \
-               wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head && \
+               wait-for-it test_db:5432 --timeout=60 -- alembic -x sql_alchemy_url=postgres://test_user:test_pass@test_db:5432/test_db upgrade head && \
                pytest -s -v"
     - docker compose down  # Остановка тестовой базы
   rules:
