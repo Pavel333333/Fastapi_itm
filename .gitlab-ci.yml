@@ -1,46 +1,44 @@
-stages:
+stages:  # Определяем все стадии
   - build
   - test
   - deploy
 
 # Простой тестовый job для проверки Docker
 build-job:
-  stage: build
+  stage: build  # Стадия сборки образа
   script:
     - docker info  # Проверяем, работает ли Docker
-    - docker build -t app_fastapi_itm .
+    - docker build -t app_fastapi_itm .  # Сборка образа
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main"'  # Запуск только на ветке main
 
 test-job:
-  stage: test
+  stage: test  # Стадия тестирования
   script:
-    - docker stop fastapi_test || true && docker rm fastapi_test || true
-    - echo "DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db" > .env-not-dev
-    - docker compose up -d test_db
-    # Тест-скрипт
-    - echo '#!/bin/sh' > test.sh
-    - echo 'curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it' >> test.sh
-    - echo 'chmod +x /usr/local/bin/wait-for-it' >> test.sh
-    - echo 'sleep 5' >> test.sh
-    - echo 'wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head' >> test.sh
-    - echo 'pytest -s -v' >> test.sh
-    - chmod +x test.sh
-    # Запуск тестов
-    - docker run --rm -e DB_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST --network fastapi_default -v $(pwd)/test.sh:/test.sh app_fastapi_itm /test.sh
-    - docker compose down
-  rules: [{if: '$CI_COMMIT_BRANCH == "main"'}]
+    - docker stop fastapi_test || true && docker rm fastapi_test || true  # Остановка и удаление старого контейнера
+    - echo "DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db" > .env-not-dev  # Создание временного .env
+    - docker compose up -d test_db  # Запуск тестовой базы
+    - echo '#!/bin/sh' > test.sh  # Создание скрипта для тестов
+    - echo 'curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it' >> test.sh  # Загрузка wait-for-it
+    - echo 'chmod +x /usr/local/bin/wait-for-it' >> test.sh  # Делаем wait-for-it исполняемым
+    - echo 'sleep 5' >> test.sh  # Задержка для инициализации
+    - echo 'wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head' >> test.sh  # Применение миграций
+    - echo 'pytest -s -v' >> test.sh  # Запуск тестов
+    - chmod +x test.sh  # Делаем скрипт исполняемым
+    - docker run --rm -e DB_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST --network fastapi_default -v $(pwd)/test.sh:/app/run_test.sh app_fastapi_itm /app/run_test.sh  # Запуск тестов в контейнере
+    - docker compose down  # Остановка тестовой базы
+  rules: [{if: '$CI_COMMIT_BRANCH == "main"}']  # Запуск только на ветке main
 
 deploy-job:
-  stage: deploy
+  stage: deploy  # Стадия деплоя
   environment: production
   script:
-    - apk add openssh-client
-    - eval $(ssh-agent -s)
-    - cat "$SSH_PRIVATE_KEY" | ssh-add -
-    - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
-    - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
-  rules: [{if: '$CI_COMMIT_BRANCH == "main"'}]
+    - apk add openssh-client  # Установка SSH клиента
+    - eval $(ssh-agent -s)  # Запуск SSH агента
+    - cat "$SSH_PRIVATE_KEY" | ssh-add -  # Добавление SSH ключа
+    - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts  # Настройка известных хостов
+    - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/  # Копирование docker-compose.yml
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"  # Создание .env-not-dev
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"  # Добавление переменной
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"  # Перезапуск сервисов
+  rules: [{if: '$CI_COMMIT_BRANCH == "main"}]  # Запуск только на ветке main
