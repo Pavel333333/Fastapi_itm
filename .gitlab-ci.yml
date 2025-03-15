@@ -37,23 +37,21 @@ test-job:
       # Даём Docker время на освобождение ресурсов
       sleep 10
 
+      # Очищаем временную директорию на хосте перед монтированием
+      rm -rf /tmp/mount-test || true
+      mkdir -p /tmp/mount-test
+
       # Проверяем монтирование до очистки
       docker run --rm \
-        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/mnt/dump/test_dump.sql:ro \
+        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/tmp/mount-test/test_dump.sql:ro \
         postgres:15 \
-        sh -c "ls -la /mnt/dump/ && ls -l /mnt/dump/test_dump.sql || echo 'Mount failed before cleanup'"
-
-      # Проверяем и снимаем монтирование на хосте
-      if mountpoint -q /mnt/dump/test_dump.sql; then
-        echo "Unmounting /mnt/dump/test_dump.sql on host"
-        umount -l /mnt/dump/test_dump.sql || true
-      fi
+        sh -c "ls -la /tmp/mount-test/ && ls -l /tmp/mount-test/test_dump.sql || echo 'Mount failed before cleanup'"
 
       # Удаляем, если Docker создал директорию вместо файла
       docker run --rm \
-        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/mnt/dump/test_dump.sql:ro \
+        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/tmp/mount-test/test_dump.sql:ro \
         postgres:15 \
-        sh -c "if [ -d /mnt/dump/test_dump.sql ]; then echo 'Removing incorrect directory'; rm -rf /mnt/dump/test_dump.sql; fi && ls -la /mnt/dump/"
+        sh -c "if [ -d /tmp/mount-test/test_dump.sql ]; then echo 'Removing incorrect directory'; rm -rf /tmp/mount-test/test_dump.sql; fi && ls -la /tmp/mount-test/"
 
       # Перезапуск базы данных
       docker compose up -d test_db
@@ -63,11 +61,11 @@ test-job:
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
-        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/mnt/dump/test_dump.sql:ro \
+        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/tmp/mount-test/test_dump.sql:ro \
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "ls -la /mnt/dump/ && ls -l /mnt/dump/test_dump.sql && head -n 10 /mnt/dump/test_dump.sql && psql -h test_db -U test_user -d test_db -f /mnt/dump/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+        sh -c "ls -la /tmp/mount-test/ && ls -l /tmp/mount-test/test_dump.sql && head -n 10 /tmp/mount-test/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/mount-test/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
