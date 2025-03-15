@@ -16,13 +16,18 @@ test-job:
   stage: test  # Стадия тестирования
   script:
     - docker stop fastapi_test || true && docker rm fastapi_test || true  # Остановка и удаление старого контейнера
-    - echo "DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db" > .env-not-dev  # Создание временного .env
+    - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev  # Создание временного .env
     - docker compose up -d test_db  # Запуск тестовой базы
-    # Запуск тестов без монтирования
+    # Запуск тестов с явными переменными
     - |
       docker run --rm \
-        -e DB_URL=postgres://test_user:test_pass@test_db:5432/test_db \
+        -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
+        -e TEST_DB_USER=test_user \
+        -e TEST_DB_PASSWORD=test_pass \
+        -e TEST_DB_HOST=test_db \
+        -e TEST_DB_PORT=5432 \
+        -e TEST_DB_NAME=test_db \
         --network fastapi_default \
         app_fastapi_itm \
         sh -c "curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it && \
