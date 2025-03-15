@@ -28,6 +28,9 @@ test-job:
       ls -la $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
       echo "Checking file content on host:"
       head -n 10 $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
+     
+      # Остановка всех контейнеров перед удалением директории
+      docker compose down || true
 
       # Проверяем монтирование в отдельном контейнере до очистки
       docker run --rm \
@@ -38,8 +41,11 @@ test-job:
       # Удаляем проблемную директорию, если она есть
       docker run --rm \
         -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/mnt/dump/test_dump.sql:ro \
-        postgres:15 \
+        postgres:15 \ 
         sh -c "if [ -d /mnt/dump/test_dump.sql ]; then echo 'Removing incorrect directory'; rm -rf /mnt/dump/test_dump.sql; fi && ls -la /mnt/dump/"
+     
+      # Перезапуск базы данных
+      docker compose up -d test_db
 
       # Запускаем основной контейнер
       docker run --rm \
