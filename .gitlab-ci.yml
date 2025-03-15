@@ -15,14 +15,15 @@ test-job:
   stage: test
   script:
     # Очистка старых контейнеров
-    - docker stop fastapi_test test_db || true
-    - docker rm fastapi_test test_db || true
+    - docker stop fastapi_test || true
+    - docker rm fastapi_test || true
     # Запуск тестовой базы
     - echo "DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db" > .env-not-dev
     - docker compose up -d test_db
-    # Запуск FastAPI контейнера в той же сети
-    - docker compose run --name fastapi_test -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST app_fastapi_itm sh -c "sleep 5 && pytest -s -v"
-    # Остановка и очистка
+    # Запуск FastAPI контейнера с правильной сетью
+    - docker run -d --name fastapi_test --network fastapi_default -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST app_fastapi_itm
+    - sleep 5
+    - docker exec fastapi_test sh -c "wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head && pytest -s -v"
     - docker stop fastapi_test
     - docker compose down
   rules:
