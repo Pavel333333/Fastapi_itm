@@ -19,8 +19,8 @@ test-job:
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
+        -v /pashakuznecov1977/fastapi/fastapi_itm_test_dump.sql:/dump.sql \
         -v $(pwd)/app:/app \
-        -v $(pwd)/fastapi_itm_test_dump.sql:/dump.sql \
         --network fastapi_default \
         postgres:15 \
         sh -c "sleep 15 && psql -h test_db -U test_user -d test_db -f /dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
