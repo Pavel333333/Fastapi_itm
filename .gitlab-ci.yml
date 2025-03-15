@@ -1,13 +1,9 @@
-stages:  # Определяем все стадии
-  - build
-  - test
-  - deploy
+stages: [.pre, build, test, deploy, .post]  # Определяем все стадии
 
-# Простой тестовый job для проверки Docker
 build-job:
   stage: build  # Стадия сборки образа
   script:
-    - docker info  # Проверяем, работает ли Docker
+    - docker info  # Проверка состояния Docker
     - docker build -t app_fastapi_itm .  # Сборка образа
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
@@ -18,13 +14,10 @@ test-job:
     - docker stop fastapi_test || true && docker rm fastapi_test || true  # Остановка и удаление старого контейнера
     - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev  # Создание временного .env
     - docker compose up -d test_db  # Запуск тестовой базы
-    # Создаём временный alembic.ini для тестов
-    - echo "[alembic]" > alembic.ini
-    - echo "sqlalchemy.url = postgres://test_user:test_pass@test_db:5432/test_db" >> alembic.ini
-    # Запуск тестов с переопределением alembic.ini
     - |
       docker run --rm \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
+        -e ALEMBIC_SQLALCHEMY_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
         -e DB_USER=dummy_user \
         -e DB_PASSWORD=dummy_pass \
@@ -40,13 +33,12 @@ test-job:
         -e TEST_DB_PORT=5432 \
         -e TEST_DB_NAME=test_db \
         --network fastapi_default \
-        -v $(pwd)/alembic.ini:/doc/alembic.ini \
         app_fastapi_itm \
         sh -c "curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it && \
                chmod +x /usr/local/bin/wait-for-it && \
-               sleep 5 && \
+               sleep 15 && \
                wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head && \
-               pytest -s -v"
+               pytest -v"
     - docker compose down  # Остановка тестовой базы
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
