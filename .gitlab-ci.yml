@@ -22,6 +22,13 @@ test-job:
       done
     # Проверяем версию PostgreSQL
     - docker run --rm postgres:17 psql --version
+    # Очищаем базу данных перед загрузкой дампа
+    - |
+      docker run --rm -i \
+        -e PGPASSWORD=test_pass \
+        --network fastapi_default \
+        postgres:17 \
+        psql -h test_db -U test_user -d test_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
     # Загружаем дамп в тестовую базу данных
     - |
       cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | docker run --rm -i \
@@ -29,13 +36,13 @@ test-job:
         --network fastapi_default \
         postgres:17 \
         psql -h test_db -U test_user -d test_db
-    # Выполняем тесты в отдельном контейнере с правильным монтированием requirements.txt
+    # Выполняем тесты в отдельном контейнере
     - |
-      docker run --rm -i \
+      docker run --rm \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
         -v $CI_PROJECT_DIR/app:/app \
-        -v $CI_PROJECT_DIR:/project_root \  # Монтируем весь корень проекта для доступа к requirements.txt
+        -v $CI_PROJECT_DIR:/project_root \
         --network fastapi_default \
         postgres:17 \
         sh -c "apt-get update && apt-get install -y python3 python3-pip python3-venv && python3 -m venv /venv && /venv/bin/pip install -r /project_root/requirements.txt && /venv/bin/pip install pytest && /venv/bin/pytest -v /app/tests/"
