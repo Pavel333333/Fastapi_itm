@@ -1,44 +1,50 @@
-stages: [.pre, build, test, deploy, .post]  # Определяем все стадии
+stages: [.pre, build, test, deploy, .post]
 
 build-job:
-  stage: build  # Стадия сборки образа
+  stage: build
   script:
-    - docker info  # Проверка состояния Docker
-    - docker build -t app_fastapi_itm .  # Сборка образа
+    - docker info
+    - docker build -t app_fastapi_itm .
   rules:
-    - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
+    - if: '$CI_COMMIT_REF_NAME == "main"'
 
 test-job:
-  stage: test  # Стадия тестирования
+  stage: test
   script:
-    - docker stop fastapi_test || true && docker rm fastapi_test || true  # Остановка и удаление старого контейнера
-    - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev  # Создание временного .env
-    - docker compose up -d test_db  # Запуск тестовой базы
+    - docker stop fastapi_test || true && docker rm fastapi_test || true
+    - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev
+    - docker compose up -d test_db
     - |
+      if [ ! -f "$CI_PROJECT_DIR/fastapi_itm_test_dump.sql" ]; then
+        echo "Dump file not found on host: $CI_PROJECT_DIR/fastapi_itm_test_dump.sql"
+        ls -la $CI_PROJECT_DIR
+        exit 1
+      fi
+      echo "File exists, proceeding with docker run"
       docker run --rm \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
-        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/dump.sql:ro \
+        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/tmp/dump.sql \
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "if [ -d /dump.sql ]; then echo '/dump.sql is a directory'; ls -l /dump.sql; exit 1; fi && ls -l /dump.sql && psql -h test_db -U test_user -d test_db -f /dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
-    - docker compose down  # Остановка тестовой базы
+        sh -c "echo 'Checking inside container...' && ls -la /tmp/ && if [ -d /tmp/dump.sql ]; then echo '/tmp/dump.sql is a directory'; ls -la /tmp/dump.sql; exit 1; fi && ls -l /tmp/dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+    - docker compose down
   rules:
-    - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
+    - if: '$CI_COMMIT_REF_NAME == "main"'
 
 deploy-job:
-  stage: deploy  # Стадия деплоя
+  stage: deploy
   environment: production
   script:
-    - apk add openssh-client  # Установка SSH клиента
-    - eval $(ssh-agent -s)  # Запуск SSH агента
-    - cat "$SSH_PRIVATE_KEY" | ssh-add -  # Добавление SSH ключа
-    - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts  # Настройка известных хостов
-    - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/  # Копирование docker-compose.yml
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"  # Создание .env-not-dev
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"  # Добавление переменной
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"  # Перезапуск сервисов
+    - apk add openssh-client
+    - eval $(ssh-agent -s)
+    - cat "$SSH_PRIVATE_KEY" | ssh-add -
+    - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
+    - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
   rules:
-    - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
+    - if: '$CI_COMMIT_REF_NAME == "main"'
