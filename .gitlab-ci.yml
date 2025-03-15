@@ -19,11 +19,11 @@ test-job:
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
-        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/dump.sql \
+        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/dump.sql:ro \
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "ls -l /dump.sql && psql -h test_db -U test_user -d test_db -f /dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+        sh -c "if [ -d /dump.sql ]; then echo '/dump.sql is a directory'; ls -l /dump.sql; exit 1; fi && ls -l /dump.sql && psql -h test_db -U test_user -d test_db -f /dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
     - docker compose down  # Остановка тестовой базы
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
