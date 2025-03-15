@@ -38,7 +38,7 @@ test-job:
       docker compose up -d test_db
 
       # Передача дампа через STDIN и выполнение тестов
-      cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | docker run --rm --no-cache \
+      cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | docker run --rm \
         -i \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
