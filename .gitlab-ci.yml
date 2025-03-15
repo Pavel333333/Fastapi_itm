@@ -28,6 +28,17 @@ test-job:
       ls -la $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
       echo "Checking file content on host:"
       head -n 10 $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
+
+      # Останавливаем test_db, чтобы освободить ресурсы
+      docker stop test_db || true && docker rm test_db || true
+
+      # Проверяем, не является ли путь директорией
+      docker run --rm \
+        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/tmp/test_dump.sql:ro \
+        postgres:15 \
+        sh -c "if [ -d /tmp/test_dump.sql ]; then echo 'Removing incorrect directory'; umount -l /tmp/test_dump.sql || true; rm -rf /tmp/test_dump.sql; fi && ls -la /tmp/"
+
+      # Запускаем основной контейнер
       docker run --rm \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
@@ -36,7 +47,7 @@ test-job:
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "if [ -d /tmp/test_dump.sql ]; then echo 'Removing incorrect directory'; rm -rf /tmp/test_dump.sql; fi && ls -la /tmp/ && ls -l /tmp/test_dump.sql && head -n 10 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+        sh -c "ls -la /tmp/ && ls -l /tmp/test_dump.sql && head -n 10 /tmp/test_dump.sql && psql -h test_db -U test_user -d test_db -f /tmp/test_dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
