@@ -16,21 +16,8 @@ test-job:
     - docker compose up -d test_db  # Запуск тестовой базы
     - |
       docker run --rm \
-        -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
-        -e MODE=TEST \
-        -e DB_USER=test_user \
-        -e DB_PASSWORD=test_pass \
-        -e DB_HOST=test_db \
-        -e DB_PORT=5432 \
-        -e DB_NAME=test_db \
-        -e RABBITMQ_HOST=dummy_host \
-        -e RABBITMQ_USER=dummy_user \
-        -e RABBITMQ_PASS=dummy_pass \
-        -e TEST_DB_USER=test_user \
-        -e TEST_DB_PASSWORD=test_pass \
-        -e TEST_DB_HOST=test_db \
-        -e TEST_DB_PORT=5432 \
-        -e TEST_DB_NAME=test_db \
+        -e POSTGRES_USER=test_user \
+        -e POSTGRES_PASSWORD=test_pass \
         --network fastapi_default \
         postgres:15 \
         sh -c "sleep 15 && psql -h test_db -U test_user -d test_db -f /builds/pashakuznecov1977/fastapi/fastapi_itm_test_dump.sql"
