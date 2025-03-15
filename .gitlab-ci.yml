@@ -28,26 +28,29 @@ test-job:
       ls -la $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
       echo "Checking file content on host:"
       head -n 10 $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
-     
-      # Остановка всех контейнеров перед удалением директории
-      docker compose down || true
 
-      # Проверяем монтирование в отдельном контейнере до очистки
+      # Остановка всех контейнеров и удаление volumes
+      docker compose down -v || true
+
+      # Даём Docker время на освобождение ресурсов
+      sleep 5
+
+      # Проверяем монтирование до очистки
       docker run --rm \
         -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/mnt/dump/test_dump.sql:ro \
         postgres:15 \
         sh -c "ls -la /mnt/dump/ && ls -l /mnt/dump/test_dump.sql || echo 'Mount failed before cleanup'"
 
-      # Удаляем проблемную директорию, если она есть
+      # Удаляем, если Docker создал директорию вместо файла
       docker run --rm \
-      -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/mnt/dump/test_dump.sql:ro \
-      postgres:15 \
-      sh -c "if [ -d /mnt/dump/test_dump.sql ]; then echo 'Removing incorrect directory'; rm -rf /mnt/dump/test_dump.sql; fi && ls -la /mnt/dump/"
-     
+        -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/mnt/dump/test_dump.sql:ro \
+        postgres:15 \
+        sh -c "if [ -d /mnt/dump/test_dump.sql ]; then echo 'Removing incorrect directory'; rm -rf /mnt/dump/test_dump.sql; fi && ls -la /mnt/dump/"
+
       # Перезапуск базы данных
       docker compose up -d test_db
 
-      # Запускаем основной контейнер
+      # Основной контейнер с тестами
       docker run --rm \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
