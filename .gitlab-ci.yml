@@ -52,8 +52,8 @@ test-job:
       # Перезапуск базы данных
       docker compose up -d test_db
 
-      # Основной контейнер с тестами
-      docker run --rm \
+      # Основной контейнер с отключённым кэшированием и с тестами
+      docker run --rm --no-cache \
         -e PGPASSWORD=test_pass \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
