@@ -40,9 +40,7 @@ deploy-job:
     - cat "$SSH_PRIVATE_KEY" | ssh-add -
     - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
     - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
-    # Создание .env-not-dev
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"
-    # Перезапуск
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
   rules: [{if: '$CI_COMMIT_BRANCH == "main"'}]
