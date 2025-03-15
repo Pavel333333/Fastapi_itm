@@ -25,7 +25,14 @@ test-job:
     - echo 'wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head' >> test.sh  # Применение миграций
     - echo 'pytest -s -v' >> test.sh  # Запуск тестов
     - chmod +x test.sh  # Делаем скрипт исполняемым
-    - docker run --rm -e DB_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST --network fastapi_default -v $(pwd)/test.sh:/app/run_test.sh app_fastapi_itm /app/run_test.sh  # Запуск тестов в контейнере
+    - |
+      docker run --rm \
+        -e DB_URL=postgres://test_user:test_pass@test_db:5432/test_db \
+        -e MODE=TEST \
+        --network fastapi_default \
+        -v $(pwd)/test.sh:/tmp/run_test.sh \
+        app_fastapi_itm \
+        /tmp/run_test.sh  # Запуск тестов в контейнере
     - docker compose down  # Остановка тестовой базы
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
