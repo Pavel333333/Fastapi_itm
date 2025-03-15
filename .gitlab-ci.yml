@@ -23,7 +23,7 @@ test-job:
         -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         postgres:15 \
-        sh -c "sleep 15 && psql -h test_db -U test_user -d test_db -f /dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
+        sh -c "ls -l /dump.sql && psql -h test_db -U test_user -d test_db -f /dump.sql && apk add python3 py3-pip && pip install pytest && pytest -v /app"
     - docker compose down  # Остановка тестовой базы
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'  # Запуск только на ветке main
