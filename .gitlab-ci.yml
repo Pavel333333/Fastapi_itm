@@ -12,8 +12,12 @@ test-job:
   stage: test  # Стадия тестирования
   script:
     - docker stop fastapi_test || true && docker rm fastapi_test || true  # Остановка и удаление старого контейнера
-    - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev  # Создание временного .env
+    - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev  # Создание временного .env для docker compose
     - docker compose up -d test_db  # Запуск тестовой базы
+    # Создаём минимальный alembic.ini с правильным URL
+    - echo "[alembic]" > test_alembic.ini
+    - echo "script_location = migration" >> test_alembic.ini
+    - echo "sqlalchemy.url = postgres://test_user:test_pass@test_db:5432/test_db" >> test_alembic.ini
     - |
       docker run --rm \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
@@ -32,11 +36,12 @@ test-job:
         -e TEST_DB_PORT=5432 \
         -e TEST_DB_NAME=test_db \
         --network fastapi_default \
+        -v $(pwd)/test_alembic.ini:/doc/test_alembic.ini \
         app_fastapi_itm \
         sh -c "curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it && \
                chmod +x /usr/local/bin/wait-for-it && \
                sleep 15 && \
-               wait-for-it test_db:5432 --timeout=60 -- alembic -x sqlalchemy_url=postgres://test_user:test_pass@test_db:5432/test_db upgrade head && \
+               wait-for-it test_db:5432 --timeout=60 -- alembic -c /doc/test_alembic.ini upgrade head && \
                pytest -v"
     - docker compose down  # Остановка тестовой базы
   rules:
@@ -51,7 +56,7 @@ deploy-job:
     - cat "$SSH_PRIVATE_KEY" | ssh-add -  # Добавление SSH ключа
     - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts  # Настройка известных хостов
     - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/  # Копирование docker-compose.yml
-    - ssh admin@176.123.165. tivemos243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"  # Создание .env-not-dev
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"  # Создание .env-not-dev
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"  # Добавление переменной
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"  # Перезапуск сервисов
   rules:
