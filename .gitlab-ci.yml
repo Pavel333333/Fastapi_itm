@@ -14,17 +14,33 @@ build-job:
 test-job:
   stage: test
   script:
-    # Очистка старых контейнеров
-    - docker stop fastapi_test || true
-    - docker rm fastapi_test || true
-    # Запуск тестовой базы
+    - docker stop fastapi_test || true && docker rm fastapi_test || true
     - echo "DATABASE_URL=postgres://test_user:test_pass@localhost:5433/test_db" > .env-not-dev
     - docker compose up -d test_db
-    # Запуск тестов в foreground режиме
-    - docker run --name fastapi_test --network fastapi_default -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST app_fastapi_itm sh -c "sleep 5 && wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head && pytest -s -v"
-    # Очистка
-    - docker rm -f fastapi_test || true
+    # Тест-скрипт
+    - echo '#!/bin/sh' > test.sh
+    - echo 'curl -sSL https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh -o /usr/local/bin/wait-for-it' >> test.sh
+    - echo 'chmod +x /usr/local/bin/wait-for-it' >> test.sh
+    - echo 'sleep 5' >> test.sh
+    - echo 'wait-for-it test_db:5432 --timeout=60 -- alembic upgrade head' >> test.sh
+    - echo 'pytest -s -v' >> test.sh
+    - chmod +x test.sh
+    # Запуск тестов
+    - docker run --rm -e DB_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST --network fastapi_default -v $(pwd)/test.sh:/test.sh app_fastapi_itm /test.sh
     - docker compose down
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+  rules: [{if: '$CI_COMMIT_BRANCH == "main"'}]
 
+deploy-job:
+  stage: deploy
+  environment: production
+  script:
+    - apk add openssh-client
+    - eval $(ssh-agent -s) && echo "$SSH_PRIVATE_KEY" | ssh-add -
+    - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
+    - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
+    # Создание .env-not-dev
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"
+    # Перезапуск
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
+  rules: [{if: '$CI_COMMIT_BRANCH == "main"'}]
