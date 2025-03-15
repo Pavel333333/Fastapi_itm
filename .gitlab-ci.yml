@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - deploy
 
 # Простой тестовый job для проверки Docker
 build-job:
@@ -35,7 +36,8 @@ deploy-job:
   environment: production
   script:
     - apk add openssh-client
-    - eval $(ssh-agent -s) && echo "$SSH_PRIVATE_KEY" | ssh-add -
+    - eval $(ssh-agent -s)
+    - cat "$SSH_PRIVATE_KEY" | ssh-add -
     - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
     - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
     # Создание .env-not-dev
