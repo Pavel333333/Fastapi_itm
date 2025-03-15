@@ -33,9 +33,9 @@ test-job:
       docker compose down -v || true
       docker network prune -f || true
       docker volume prune -f || true
-
+      
       # Даём Docker время на освобождение ресурсов
-      sleep 5
+      sleep 5      
 
       # Проверяем монтирование до очистки
       docker run --rm \
@@ -43,11 +43,14 @@ test-job:
         postgres:15 \
         sh -c "ls -la /mnt/dump/ && ls -l /mnt/dump/test_dump.sql || echo 'Mount failed before cleanup'"
 
-      # Удаляем, если Docker создал директорию вместо файла
+      # Принудительное удаление директории, если она была создана вместо файла
       docker run --rm \
         -v $CI_PROJECT_DIR/fastapi_itm_test_dump.sql:/mnt/dump/test_dump.sql:ro \
         postgres:15 \
         sh -c "if [ -d /mnt/dump/test_dump.sql ]; then echo 'Removing incorrect directory'; rm -rf /mnt/dump/test_dump.sql; fi && ls -la /mnt/dump/"
+            
+      # Принудительное удаление "висячего" монтирования через rm -rf
+      sudo rm -rf /mnt/dump/test_dump.sql || true            
 
       # Перезапуск базы данных
       docker compose up -d test_db
