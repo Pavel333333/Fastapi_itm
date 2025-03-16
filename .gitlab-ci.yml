@@ -44,21 +44,20 @@ test-job:
       docker cp $CI_PROJECT_DIR/app test_container:/app
       docker cp $CI_PROJECT_DIR/app/tests test_container:/app/tests
       docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /requirements.txt && pip install pytest uvicorn"
-      docker exec test_container sh -c "ls -la /app/api/endpoints"  # Проверка файлов
-      docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug > /tmp/uvicorn.log 2>&1"  # Логи в файл
+      docker exec test_container sh -c "ls -la /app/api/endpoints.py || echo 'endpoints.py not found'"  # Проверка файла
+      docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug > /tmp/uvicorn.log 2>&1"
       sleep 5
       if docker exec test_container nc -z localhost 8001; then
         echo "FastAPI server is ready!"
       else
         echo "FastAPI server failed to start!"
-        docker logs test_container
-        cat /tmp/uvicorn.log
+        docker exec test_container sh -c "cat /tmp/uvicorn.log"
         exit 1
       fi
       response_code=$(docker exec test_container sh -c "curl -X POST -F 'file=@/app/tests/test_files/fgh.jpeg' -s -o /dev/null -w '%{http_code}' http://localhost:8001/files/upload_doc")
       if [ "$response_code" -ne 200]; then
         echo "Upload endpoint not responding correctly: $response_code"
-        docker exec test_container sh -c "cat /tmp/uvicorn.log"  # Вывод логов
+        docker exec test_container sh -c "cat /tmp/uvicorn.log"
         exit 1
       fi
       docker exec test_container sh -c "pytest -v /app/tests"
