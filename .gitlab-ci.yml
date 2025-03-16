@@ -12,32 +12,37 @@ test-job:
   script:
     # Создаем переменную окружения для базы данных
     - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev
-    # Запускаем тестовую базу данных
+
+    # Запускаем базу
     - docker compose up -d test_db
+
     # Ожидаем готовности базы данных
     - |
       until docker run --rm --network fastapi_default postgres:17 pg_isready -h test_db -U test_user; do
         echo "Waiting for test_db to be ready..."
         sleep 2
       done
-    # Проверяем версию PostgreSQL для отладки
-    - docker run --rm postgres:17 psql --version
-    # Очищаем схему public перед загрузкой дампа
+
+    # Очищаем базу
     - docker run --rm -i -e PGPASSWORD=test_pass --network fastapi_default postgres:17 psql -h test_db -U test_user -d test_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-    # Загружаем дамп в базу данных
+
+    # Очищаем дамп от ненужного мусора и загружаем его
     - |
       cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | \
+      grep -v 'transaction_timeout' | \
       docker run --rm -i -e PGPASSWORD=test_pass --network fastapi_default postgres:17 psql -h test_db -U test_user -d test_db
-    # Запускаем тесты с использованием Python-образа
+
+    # Запускаем тесты
     - |
       docker run --rm \
         -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db \
         -e MODE=TEST \
-        -v $CI_PROJECT_DIR/app:/app \  # Монтируем app/, где код и requirements.txt
+        -v $CI_PROJECT_DIR/app:/app \
         --network fastapi_default \
         python:3.11 \
-        sh -c "apt-get update && apt-get install -y python3-pip && pip install -r /app/requirements.txt && pip install pytest && pytest -v /app/tests/"
-    # Останавливаем тестовую базу данных
+        sh -c "apt-get update && apt-get install -y python3-pip && pip install -r /app/requirements.txt && pip install pytest && pytest -v /app/tests"
+
+    # Останавливаем базу
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
