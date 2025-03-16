@@ -49,10 +49,13 @@ test-job:
       docker cp $CI_PROJECT_DIR/requirements.txt test_container:/requirements.txt
       docker cp $CI_PROJECT_DIR/app test_container:/app
       docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip curl && pip install -r /requirements.txt && pip install pytest uvicorn"
-      # Запускаем FastAPI приложение в фоне
+      # Запускаем FastAPI приложение в фоне с выводом логов
       docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001"
-      # Ждем, пока сервер запустится
-      until docker exec test_container sh -c "curl -s http://localhost:8001/ || exit 0"; do
+      # Даем серверу время запуститься и выводим логи для диагностики
+      sleep 5
+      docker logs test_container
+      # Ждем, пока сервер станет доступен (проверка корневого endpoint'а)
+      until docker exec test_container sh -c "curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/ | grep -q 200"; do
         echo "Waiting for FastAPI server to be ready..."
         sleep 2
       done
