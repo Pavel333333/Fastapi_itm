@@ -27,8 +27,14 @@ test-job:
       cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | \
       grep -v "transaction_timeout" | \
       docker run --rm -i -e PGPASSWORD=test_pass --network fastapi_default postgres:17 psql -h test_db -U test_user -d test_db
-    # Запускаем тесты с монтированием корня проекта в /project
-    - docker run --rm -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST -v $CI_PROJECT_DIR:/project --network fastapi_default python:3.11 sh -c "apt-get update && apt-get install -y python3-pip && pip install -r /project/requirements.txt && pip install pytest && pytest -v /project/app/tests"
+    # Запускаем тесты, копируя requirements.txt в контейнер
+    - |
+      docker run -d --name test_container -e DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db -e MODE=TEST --network fastapi_default python:3.11 tail -f /dev/null
+      docker cp $CI_PROJECT_DIR/requirements.txt test_container:/requirements.txt
+      docker cp $CI_PROJECT_DIR/app test_container:/app
+      docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip && pip install -r /requirements.txt && pip install pytest && pytest -v /app/tests"
+      docker stop test_container
+      docker rm test_container
     # Останавливаем тестовую базу
     - docker compose down
   rules:
