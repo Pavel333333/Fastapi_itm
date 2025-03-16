@@ -52,15 +52,14 @@ test-job:
       # Запускаем FastAPI приложение в фоне
       docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001"
       # Ждем, пока порт 8001 станет доступен (максимум 10 итераций)
-      - |
-        for i in $(seq 1 10); do
-          if docker exec test_container nc -z localhost 8001; then
-            echo "FastAPI server is ready!"
-            break
-          fi
-          echo "Waiting for FastAPI server to be ready... ($i/10)"
-          sleep 2
-        done
+      for i in $(seq 1 10); do
+        if docker exec test_container nc -z localhost 8001; then
+          echo "FastAPI server is ready!"
+          break
+        fi
+        echo "Waiting for FastAPI server to be ready... ($i/10)"
+        sleep 2
+      done
       # Выводим логи сервера для диагностики
       docker logs test_container
       docker exec test_container sh -c "pytest -v /app/tests"
