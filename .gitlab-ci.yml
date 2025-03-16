@@ -42,6 +42,7 @@ test-job:
         python:3.11 tail -f /dev/null
       docker cp $CI_PROJECT_DIR/requirements.txt test_container:/requirements.txt
       docker cp $CI_PROJECT_DIR/app test_container:/app
+      docker cp $CI_PROJECT_DIR/tests test_container:/app/tests  # Добавлено для файлов тестов
       docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /requirements.txt && pip install pytest uvicorn"
       docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug"
       sleep 5
@@ -52,8 +53,8 @@ test-job:
         docker logs test_container
         exit 1
       fi
-      response_code=$(docker exec test_container sh -c "curl -X POST -s -o /dev/null -w '%{http_code}' http://localhost:8001/files/upload_doc")
-      if [ "$response_code" -ne 405 ]; then
+      response_code=$(docker exec test_container sh -c "curl -X POST -F 'file=@/app/tests/test_files/fgh.jpeg' -s -o /dev/null -w '%{http_code}' http://localhost:8001/files/upload_doc")
+      if [ "$response_code" -ne 200 ]; then  # Ожидаем 200, так как файл теперь есть
         echo "Upload endpoint not responding correctly: $response_code"
         docker logs test_container
         exit 1
