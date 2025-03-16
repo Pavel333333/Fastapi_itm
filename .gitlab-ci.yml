@@ -10,26 +10,20 @@ build-job:
 test-job:
   stage: test
   script:
-    # Создаем файл с переменной окружения для базы данных
     - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev
-    # Запускаем тестовую базу данных
     - docker compose up -d test_db
-    # Ожидаем готовности базы
     - |
       until docker run --rm --network fastapi_default postgres:17 pg_isready -h test_db -U test_user; do
         echo "Waiting for test_db to be ready..."
         sleep 2
       done
-    # Очищаем схему public перед загрузкой дампа
     - docker run --rm -i -e PGPASSWORD=test_pass --network fastapi_default postgres:17 psql -h test_db -U test_user -d test_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-    # Фильтруем дамп от transaction_timeout и загружаем его
     - |
       cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | \
       grep -v "transaction_timeout" | \
       docker run --rm -i -e PGPASSWORD=test_pass --network fastapi_default postgres:17 psql -h test_db -U test_user -d test_db
-    # Удаляем старый контейнер и создаем новый с нужными переменными окружения
     - |
-      docker rm -f test_container || true  # Удаляем старый контейнер, если есть
+      docker rm -f test_container || true
       docker run -d --name test_container --network fastapi_default \
         -e "MODE=TEST" \
         -e "DB_USER=test_user" \
@@ -49,25 +43,24 @@ test-job:
       docker cp $CI_PROJECT_DIR/requirements.txt test_container:/requirements.txt
       docker cp $CI_PROJECT_DIR/app test_container:/app
       docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /requirements.txt && pip install pytest uvicorn"
-      # Запускаем FastAPI приложение с дебаг-логами
       docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug"
-      # Ждем, пока порт 8001 станет доступен (максимум 10 итераций)
-      for i in $(seq 1 10); do
-        if docker exec test_container nc -z localhost 8001; then
-          echo "FastAPI server is ready!"
-          break
-        fi
-        echo "Waiting for FastAPI server to be ready... ($i/10)"
-        sleep 2
-      done
-      # Выводим логи сервера для диагностики
-      docker logs test_container
-      # Проверяем доступность endpoint'а
-      docker exec test_container sh -c "curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/files/upload_doc || echo 'Endpoint not available'" || (echo "Server failed to respond" && docker logs test_container && exit 1)
+      sleep 5
+      if docker exec test_container nc -z localhost 8001; then
+        echo "FastAPI server is ready!"
+      else
+        echo "FastAPI server failed to start!"
+        docker logs test_container
+        exit 1
+      fi
+      response_code=$(docker exec test_container sh -c "curl -X POST -s -o /dev/null -w '%{http_code}' http://localhost:8001/files/upload_doc")
+      if [ "$response_code" -ne 405 ]; then
+        echo "Upload endpoint not responding correctly: $response_code"
+        docker logs test_container
+        exit 1
+      fi
       docker exec test_container sh -c "pytest -v /app/tests"
       docker stop test_container
       docker rm test_container
-    # Останавливаем тестовую базу
     - docker compose down
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
