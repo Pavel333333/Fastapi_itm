@@ -25,68 +25,17 @@ build-job:
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
-# Test job: Запуск тестов
-test-job:
+test-docker:
   stage: test
-  image: ubuntu:24.04  # Используем Ubuntu 24.04 LTS
-  services:
-    - postgres:17         # PostgreSQL для тестов
-    - rabbitmq:3-management # RabbitMQ для тестов
-  variables:
-    POSTGRES_DB: $POSTGRES_DB
-    POSTGRES_USER: $POSTGRES_USER
-    POSTGRES_PASSWORD: $POSTGRES_PASSWORD
-  before_script:
-    # Очистка старых контейнеров
-    - docker stop test_container || true
-    - docker rm -f test_container || true
-
-    # Обновление и установка зависимостей
-    - apt-get update && apt-get install -y curl netcat postgresql-client python3 python3-pip
-
-    # Ожидание готовности PostgreSQL
-    - until nc -z "$TEST_DB_HOST" "$TEST_DB_PORT"; do echo "Waiting for PostgreSQL to be ready..."; sleep 2; done
-
-    # Создание тестовой базы данных
-    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$TEST_DB_HOST" -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;" || true
-
-    # Восстановление данных из дампа
-    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$TEST_DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
   script:
-    # Запуск тестового контейнера
-    - docker run --rm --name test_container \
-        -e MODE=TEST \
-        -e DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$TEST_DB_HOST:$TEST_DB_PORT/$POSTGRES_DB" \
-        -v $CI_PROJECT_DIR/app:/app \
-        -v $CI_PROJECT_DIR/tests:/app/tests \
-        python:3.12 sh -c "
-          pip install -r /app/requirements.txt &&
-          pytest -v /app/tests"
-  after_script:
-    # Очистка после выполнения job
-    - docker stop test_container || true
-    - docker rm -f test_container || true
+    - docker --version
+    - docker ps
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
-# Deploy job: Развертывание приложения
-deploy-job:
-  stage: deploy
-  environment: production
-  image: ubuntu:24.04  # Используем Ubuntu 24.04 LTS
+print-env:
+  stage: test
   script:
-    # Настройка SSH-ключа
-    - apt-get update && apt-get install -y openssh-client
-    - eval $(ssh-agent -s)
-    - cat "$SSH_PRIVATE_KEY" | ssh-add -
-    - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
-
-    # Копирование файлов на сервер
-    - scp $CI_PROJECT_DIR/docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"
-
-    # Перезапуск приложения
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
+    - env | grep DOCKER
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
