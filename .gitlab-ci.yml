@@ -10,48 +10,29 @@ build-job:
 test-job:
   stage: test
   script:
-    # Чистим старые контейнеры перед началом
     - docker stop test_container || true
     - docker rm -f test_container || true
-    # Запускаем контейнер с приложением и SQLite на python:3.12
-    - |
-      docker run -d --name test_container \
-        -e "MODE=TEST" \
-        -e "TEST_DB_TYPE=sqlite" \
-        -e "TEST_DB_PATH=/app/test.db" \
-        -e "PATH_TO_FILES=/app/documents_for_tests" \
-        python:3.12 tail -f /dev/null
-    # Создаём директорию /app для файлов проекта
+    - docker run -d --name test_container -e "MODE=TEST" -e "TEST_DB_TYPE=sqlite" -e "TEST_DB_PATH=/app/test.db" -e "PATH_TO_FILES=/app/documents_for_tests" python:3.12 tail -f /dev/null
     - docker exec test_container sh -c "mkdir -p /app"
-    # Копируем файлы проекта в контейнер
     - docker cp $CI_PROJECT_DIR/requirements.txt test_container:/app/requirements.txt
     - docker cp $CI_PROJECT_DIR/app test_container:/app
     - docker cp $CI_PROJECT_DIR/app/tests test_container:/app/tests
-    # Проверяем, что файлы скопировались
     - docker exec test_container sh -c "ls -la /app"
-    - docker exec test_container sh -c "cat /app/app/main.py || echo 'Error: main.py not found or empty'"
-    # Создаём директорию для тестовых файлов
+    - docker exec test_container sh -c "cat /app/main.py || echo 'Error: main.py not found or empty'"
     - docker exec test_container sh -c "mkdir -p /app/documents_for_tests"
-    # Устанавливаем зависимости
     - docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /app/requirements.txt && pip install pytest uvicorn"
-    # Запускаем FastAPI сервер в фоновом режиме
     - docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug > /tmp/uvicorn.log 2>&1"
-    # Ждём 5 секунд, чтобы сервер запустился
     - sleep 5
-    # Проверяем, что сервер работает
-    - |
+    - >-
       if docker exec test_container nc -z localhost 8001; then
-        echo "FastAPI server is ready!"
+        echo "FastAPI server is ready!";
       else
-        echo "FastAPI server failed to start!"
-        docker exec test_container sh -c "cat /tmp/uvicorn.log"
-        exit 1
+        echo "FastAPI server failed to start!";
+        docker exec test_container sh -c "cat /tmp/uvicorn.log";
+        exit 1;
       fi
-    # Тестируем эндпоинт загрузки файла
     - docker exec test_container sh -c "curl -X POST -F 'file=@/app/tests/test_files/fgh.jpeg' -s http://localhost:8001/files/upload_doc"
-    # Запускаем тесты
     - docker exec test_container sh -c "pytest -v /app/tests"
-    # Останавливаем и удаляем контейнер в конце
     - docker stop test_container || true
     - docker rm -f test_container || true
   rules:
