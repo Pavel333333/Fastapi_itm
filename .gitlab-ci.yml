@@ -21,6 +21,8 @@ test-job:
         -e "TEST_DB_PATH=/app/test.db" \
         -e "PATH_TO_FILES=/app/documents_for_tests" \
         python:3.11 tail -f /dev/null
+    # Создаём директорию /app для файлов проекта
+    - docker exec test_container sh -c "mkdir -p /app"
     # Копируем файлы проекта в контейнер
     - docker cp $CI_PROJECT_DIR/requirements.txt test_container:/app/requirements.txt
     - docker cp $CI_PROJECT_DIR/app test_container:/app
