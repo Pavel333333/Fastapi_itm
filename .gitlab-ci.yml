@@ -10,19 +10,16 @@ build-job:
 test-job:
   stage: test
   script:
-    - docker run -d --name test_db postgres:17 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
+    - docker run -d --name test_db -p 5432:5432 postgres:17 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
     - |
-      until docker run --rm postgres:17 pg_isready -h test_db -U postgres; do
-        echo "Waiting for test_db to be ready..."
-        sleep 2
-      done
+      timeout 30s bash -c "until docker run --rm postgres:17 pg_isready -h localhost -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; exit 1; }
     - docker rm -f test_container || true
     - |
-      docker run -d --name test_container --link test_db:test_db \
+      docker run -d --name test_container \
         -e "MODE=TEST" \
         -e "TEST_DB_USER=postgres" \
         -e "TEST_DB_PASSWORD=postgres" \
-        -e "TEST_DB_HOST=test_db" \
+        -e "TEST_DB_HOST=host.docker.internal" \
         -e "TEST_DB_PORT=5432" \
         -e "TEST_DB_NAME=fastapi_itm_test" \
         -e "PATH_TO_FILES=/app/documents_for_tests" \
