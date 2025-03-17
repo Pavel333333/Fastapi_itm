@@ -10,49 +10,50 @@ build-job:
 test-job:
   stage: test
   script:
-    - echo "DATABASE_URL=postgres://test_user:test_pass@test_db:5432/test_db" > .env-not-dev
     - docker compose up -d test_db
     - |
-      until docker run --rm --network fastapi_default postgres:17 pg_isready -h test_db -U test_user; do
+      until docker run --rm --network fastapi_default postgres:17 pg_isready -h test_db -U postgres; do
         echo "Waiting for test_db to be ready..."
         sleep 2
       done
-    - docker run --rm -i -e PGPASSWORD=test_pass --network fastapi_default postgres:17 psql -h test_db -U test_user -d test_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+    - docker run --rm -i -e PGPASSWORD=postgres --network fastapi_default postgres:17 psql -h test_db -U postgres -c "CREATE DATABASE fastapi_itm_test;"
+    - docker run --rm -i -e PGPASSWORD=postgres --network fastapi_default postgres:17 psql -h test_db -U postgres -d fastapi_itm_test -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
     - |
       cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | \
       grep -v "transaction_timeout" | \
-      docker run --rm -i -e PGPASSWORD=test_pass --network fastapi_default postgres:17 psql -h test_db -U test_user -d test_db
+      docker run --rm -i -e PGPASSWORD=postgres --network fastapi_default postgres:17 psql -h test_db -U postgres -d fastapi_itm_test
     - |
       docker rm -f test_container || true
       docker run -d --name test_container --network fastapi_default \
         -e "MODE=TEST" \
-        -e "DB_USER=test_user" \
-        -e "DB_PASSWORD=test_pass" \
+        -e "DB_USER=postgres" \
+        -e "DB_PASSWORD=postgres" \
         -e "DB_HOST=test_db" \
         -e "DB_PORT=5432" \
-        -e "DB_NAME=test_db" \
+        -e "DB_NAME=fastapi_itm_test" \
         -e "RABBITMQ_HOST=rabbitmq" \
         -e "RABBITMQ_USER=guest" \
         -e "RABBITMQ_PASS=guest" \
-        -e "TEST_DB_USER=test_user" \
-        -e "TEST_DB_PASSWORD=test_pass" \
+        -e "TEST_DB_USER=postgres" \
+        -e "TEST_DB_PASSWORD=postgres" \
         -e "TEST_DB_HOST=test_db" \
         -e "TEST_DB_PORT=5432" \
-        -e "TEST_DB_NAME=test_db" \
+        -e "TEST_DB_NAME=fastapi_itm_test" \
         -e "PATH_TO_FILES=/app/documents_for_tests" \
         python:3.11 tail -f /dev/null
-      docker cp $CI_PROJECT_DIR/requirements.txt test_container:/requirements.txt
+      docker cp $CI_PROJECT_DIR/requirements.txt test_container:/app/requirements.txt
       docker cp $CI_PROJECT_DIR/app test_container:/app
       docker cp $CI_PROJECT_DIR/app/tests test_container:/app/tests
       docker exec test_container sh -c "mkdir -p /app/documents_for_tests"
-      docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /requirements.txt && pip install pytest uvicorn"
+      docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /app/requirements.txt && pip install pytest uvicorn"
       docker exec test_container sh -c "ls -la /app/api/endpoints.py || echo 'endpoints.py not found'"
-      docker exec test_container sh -c "python -c 'from app.api.endpoints import router; print(\"Endpoints imported successfully\")' || echo 'Failed to import endpoints.py'"  # Проверка импорта
+      docker exec test_container sh -c "python -c 'from app.api.endpoints import router; print(\"Endpoints imported successfully\")' || echo 'Failed to import endpoints.py'"
+      docker exec test_container sh -c "python -c 'from app.config import settings; print(\"Async Test DB URL:\", settings.get_async_test_db_url())' || echo 'Failed to get DB URL'"
       docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug > /tmp/uvicorn.log 2>&1"
       sleep 5
       if docker exec test_container nc -z localhost 8001; then
         echo "FastAPI server is ready!"
-        docker exec test_container sh -c "python -c 'from app.main import app; print([r.path for r in app.routes])' > /tmp/routes.log"  # Вывод маршрутов
+        docker exec test_container sh -c "python -c 'from app.main import app; print([r.path for r in app.routes])' > /tmp/routes.log"
         docker exec test_container sh -c "cat /tmp/routes.log"
       else
         echo "FastAPI server failed to start!"
@@ -60,8 +61,10 @@ test-job:
         exit 1
       fi
       response_code=$(docker exec test_container sh -c "curl -X POST -F 'file=@/app/tests/test_files/fgh.jpeg' -s -o /dev/null -w '%{http_code}' http://localhost:8001/files/upload_doc")
+      response_body=$(docker exec test_container sh -c "curl -X POST -F 'file=@/app/tests/test_files/fgh.jpeg' -s http://localhost:8001/files/upload_doc")
       if [ "$response_code" -ne 200 ]; then
         echo "Upload endpoint not responding correctly: $response_code"
+        echo "Response body: $response_body"
         docker exec test_container sh -c "cat /tmp/uvicorn.log"
         docker exec test_container sh -c "cat /tmp/routes.log"
         exit 1
