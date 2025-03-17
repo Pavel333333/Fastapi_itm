@@ -10,11 +10,16 @@ build-job:
 test-job:
   stage: test
   script:
-    - docker rm -f test_db || true  # Убираем test_db перед запуском
+    # Удаляем старый контейнер БД, если он остался от предыдущего запуска
+    - docker rm -f test_db || true
+    # Запускаем PostgreSQL с открытым портом 5432
     - docker run -d --name test_db -p 5432:5432 postgres:17 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
+    # Ждём, пока БД станет готова, с тайм-аутом 30 секунд
     - |
-      timeout 30s bash -c "until docker run --rm postgres:17 pg_isready -h localhost -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; exit 1; }
+      timeout 30s sh -c "until docker run --rm postgres:17 pg_isready -h localhost -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; exit 1; }
+    # Удаляем старый контейнер приложения, если он есть
     - docker rm -f test_container || true
+    # Запускаем контейнер с приложением
     - |
       docker run -d --name test_container \
         -e "MODE=TEST" \
@@ -25,13 +30,19 @@ test-job:
         -e "TEST_DB_NAME=fastapi_itm_test" \
         -e "PATH_TO_FILES=/app/documents_for_tests" \
         python:3.11 tail -f /dev/null
+    # Копируем файлы проекта в контейнер
     - docker cp $CI_PROJECT_DIR/requirements.txt test_container:/app/requirements.txt
     - docker cp $CI_PROJECT_DIR/app test_container:/app
     - docker cp $CI_PROJECT_DIR/app/tests test_container:/app/tests
+    # Создаём директорию для тестовых файлов
     - docker exec test_container sh -c "mkdir -p /app/documents_for_tests"
+    # Устанавливаем зависимости
     - docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /app/requirements.txt && pip install pytest uvicorn"
+    # Запускаем FastAPI сервер в фоновом режиме
     - docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug > /tmp/uvicorn.log 2>&1"
+    # Ждём 5 секунд, чтобы сервер запустился
     - sleep 5
+    # Проверяем, что сервер работает
     - |
       if docker exec test_container nc -z localhost 8001; then
         echo "FastAPI server is ready!"
@@ -40,8 +51,11 @@ test-job:
         docker exec test_container sh -c "cat /tmp/uvicorn.log"
         exit 1
       fi
+    # Тестируем эндпоинт загрузки файла
     - docker exec test_container sh -c "curl -X POST -F 'file=@/app/tests/test_files/fgh.jpeg' -s http://localhost:8001/files/upload_doc"
+    # Запускаем тесты
     - docker exec test_container sh -c "pytest -v /app/tests"
+    # Останавливаем и удаляем контейнеры
     - docker stop test_db test_container
     - docker rm test_db test_container
   rules:
