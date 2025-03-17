@@ -13,20 +13,23 @@ test-job:
     # Чистим старые контейнеры перед началом
     - docker stop test_container || true
     - docker rm -f test_container || true
-    # Запускаем контейнер с приложением и SQLite
+    # Запускаем контейнер с приложением и SQLite на python:3.12
     - |
       docker run -d --name test_container \
         -e "MODE=TEST" \
         -e "TEST_DB_TYPE=sqlite" \
         -e "TEST_DB_PATH=/app/test.db" \
         -e "PATH_TO_FILES=/app/documents_for_tests" \
-        python:3.11 tail -f /dev/null
+        python:3.12 tail -f /dev/null
     # Создаём директорию /app для файлов проекта
     - docker exec test_container sh -c "mkdir -p /app"
     # Копируем файлы проекта в контейнер
     - docker cp $CI_PROJECT_DIR/requirements.txt test_container:/app/requirements.txt
     - docker cp $CI_PROJECT_DIR/app test_container:/app
     - docker cp $CI_PROJECT_DIR/app/tests test_container:/app/tests
+    # Проверяем, что файлы скопировались
+    - docker exec test_container sh -c "ls -la /app"
+    - docker exec test_container sh -c "cat /app/app/main.py || echo 'Error: main.py not found or empty'"
     # Создаём директорию для тестовых файлов
     - docker exec test_container sh -c "mkdir -p /app/documents_for_tests"
     # Устанавливаем зависимости
