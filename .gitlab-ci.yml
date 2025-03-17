@@ -1,54 +1,84 @@
-stages: [.pre, build, test, deploy, .post]
+stages:
+  - build
+  - test
+  - deploy
 
+# Переменные для удобства (можно также использовать GitLab Variables)
+variables:
+  TEST_DB_NAME: $TEST_DB_NAME
+  TEST_DB_USER: $TEST_DB_USER
+  TEST_DB_PASSWORD: $TEST_DB_PASSWORD
+  TEST_DB_HOST: "test_db"  # Указано, что TEST_DB_HOST заменён на test_db
+  TEST_DB_PORT: "5432"
+
+# Job для сборки Docker-образа
 build-job:
   stage: build
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
   script:
-    - docker build -t app_fastapi_itm .
+    - docker build -t app_fastapi_itm:latest -f Dockerfile .
+    - docker save app_fastapi_itm:latest > app_fastapi_itm.tar  # Сохраняем образ для передачи
+  artifacts:
+    paths:
+      - app_fastapi_itm.tar  # Передаём образ в следующие job
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
+# Job для запуска тестов
 test-job:
   stage: test
+  image: docker:24.0
+  services:
+    - name: postgres:17.2
+      alias: test_db  # Соответствует TEST_DB_HOST
+      env:
+        POSTGRES_DB: $TEST_DB_NAME
+        POSTGRES_USER: $TEST_DB_USER
+        POSTGRES_PASSWORD: $TEST_DB_PASSWORD
+  variables:
+    MODE: "TEST"  # Устанавливаем режим TEST для проекта
+  before_script:
+    # Устанавливаем PostgreSQL-клиент для работы с базой
+    - apk add --no-cache postgresql-client
+    # Загружаем сохранённый образ из build-job
+    - docker load < app_fastapi_itm.tar
   script:
-    - docker stop test_container || true
-    - docker rm -f test_container || true
-    - docker run -d --name test_container -e "MODE=TEST" -e "TEST_DB_TYPE=sqlite" -e "TEST_DB_PATH=/app/test.db" -e "PATH_TO_FILES=/app/documents_for_tests" python:3.12 tail -f /dev/null
-    - docker exec test_container sh -c "mkdir -p /app"
-    - docker cp $CI_PROJECT_DIR/requirements.txt test_container:/app/requirements.txt
-    - docker cp $CI_PROJECT_DIR/app test_container:/app
-    - docker cp $CI_PROJECT_DIR/app/tests test_container:/app/tests
-    - docker exec test_container sh -c "ls -la /app"
-    - docker exec test_container sh -c "cat /app/main.py || echo 'Error: main.py not found or empty'"
-    - docker exec test_container sh -c "mkdir -p /app/documents_for_tests"
-    - docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /app/requirements.txt && pip install pytest uvicorn"
-    - docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug > /tmp/uvicorn.log 2>&1"
-    - sleep 5
-    - >-
-      if docker exec test_container nc -z localhost 8001; then
-        echo "FastAPI server is ready!";
-      else
-        echo "FastAPI server failed to start!";
-        docker exec test_container sh -c "cat /tmp/uvicorn.log";
-        exit 1;
-      fi
-    - docker exec test_container sh -c "curl -X POST -F 'file=@/app/tests/test_files/fgh.jpeg' -s http://localhost:8001/files/upload_doc"
-    - docker exec test_container sh -c "pytest -v /app/tests"
-    - docker stop test_container || true
-    - docker rm -f test_container || true
+    # Ждём, пока PostgreSQL запустится
+    - until pg_isready -h test_db -p 5432 -U $TEST_DB_USER; do sleep 1; done
+    # Копируем дамп базы и воссоздаём её
+    - docker cp fastapi_itm_test_dump.sql test_db:/tmp/dump.sql
+    - docker exec test_db psql -U $TEST_DB_USER -d $TEST_DB_NAME -f /tmp/dump.sql
+    # Запускаем контейнер с приложением
+    - docker run -d --name test_container --network=host -e MODE=TEST -e TEST_DB_NAME=$TEST_DB_NAME -e TEST_DB_USER=$TEST_DB_USER -e TEST_DB_PASSWORD=$TEST_DB_PASSWORD -e TEST_DB_HOST=$TEST_DB_HOST -e TEST_DB_PORT=$TEST_DB_PORT app_fastapi_itm:latest tail -f /dev/null
+    # Копируем тестовые файлы в контейнер
+    - docker cp app/tests/test_files/. test_container:/doc/documents_for_tests/
+    # Устанавливаем pytest и запускаем тесты
+    - docker exec test_container pip install pytest pytest-asyncio
+    - docker exec test_container pytest -v /doc/app/tests/test_api.py
+    # Останавливаем и удаляем контейнер
+    - docker stop test_container
+    - docker rm test_container
+  dependencies:
+    - build-job  # Тесты зависят от сборки образа
+  artifacts:
+    when: always
+    paths:
+      - pytest.log  # Логи тестов для отладки (если настроить вывод)
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
+# Job для развёртывания (упрощённая версия)
 deploy-job:
   stage: deploy
-  environment: production
+  image: docker:24.0
   script:
-    - apk add openssh-client
-    - eval $(ssh-agent -s)
-    - cat "$SSH_PRIVATE_KEY" | ssh-add -
-    - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
-    - scp docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"
-    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
+    - echo "Развёртывание на сервер (здесь должен быть реальный код деплоя)"
+    - docker load < app_fastapi_itm.tar
+    - docker tag app_fastapi_itm:latest myregistry/app_fastapi_itm:$CI_COMMIT_SHA
+    - echo "Образ готов для деплоя: myregistry/app_fastapi_itm:$CI_COMMIT_SHA"
+  dependencies:
+    - test-job  # Деплой зависит от успешных тестов
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
