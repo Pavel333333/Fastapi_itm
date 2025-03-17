@@ -10,6 +10,7 @@ build-job:
 test-job:
   stage: test
   script:
+    - docker rm -f test_db || true  # Убираем test_db перед запуском
     - docker run -d --name test_db -p 5432:5432 postgres:17 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
     - |
       timeout 30s bash -c "until docker run --rm postgres:17 pg_isready -h localhost -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; exit 1; }
