@@ -28,8 +28,6 @@ services:
       - TEST_DB_NAME=fastapi_itm_test
     ports:
       - "5433:5432"  # Отдельный порт, чтобы не конфликтовать с основной базой
-    networks:
-      - mynetwork
 
   rabbitmq:
     image: rabbitmq:3-management
