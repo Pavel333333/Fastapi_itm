@@ -10,7 +10,7 @@ build-job:
 test-job:
   stage: test
   script:
-    - docker compose up -d test_db
+    - docker compose up -d test_db --no-env
     - |
       until docker run --rm --network mynetwork postgres:17 pg_isready -h test_db -U postgres; do
         echo "Waiting for test_db to be ready..."
@@ -25,11 +25,6 @@ test-job:
       docker rm -f test_container || true
       docker run -d --name test_container --network mynetwork \
         -e "MODE=TEST" \
-        -e "DB_USER=postgres" \
-        -e "DB_PASSWORD=postgres" \
-        -e "DB_HOST=test_db" \
-        -e "DB_PORT=5432" \
-        -e "DB_NAME=fastapi_itm_test" \
         -e "RABBITMQ_HOST=rabbitmq" \
         -e "RABBITMQ_USER=guest" \
         -e "RABBITMQ_PASS=guest" \
