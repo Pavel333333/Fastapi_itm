@@ -7,9 +7,9 @@ variables:
   POSTGRES_DB: fastapi_itm_test
   POSTGRES_USER: postgres
   POSTGRES_PASSWORD: postgres
-  TEST_DB_HOST: postgres
-  TEST_DB_PORT: 5432
-  RABBITMQ_HOST: rabbitmq
+  TEST_DB_HOST: postgres  # Имя хоста для PostgreSQL
+  TEST_DB_PORT: 5432      # Порт PostgreSQL
+  RABBITMQ_HOST: rabbitmq # Имя хоста для RabbitMQ
   RABBITMQ_USER: guest
   RABBITMQ_PASS: guest
 
@@ -26,8 +26,8 @@ build-job:
 test-job:
   stage: test
   services:
-    - postgres:17  # PostgreSQL для тестов
-    - rabbitmq:3-management  # RabbitMQ для тестов
+    - postgres:17         # PostgreSQL для тестов
+    - rabbitmq:3-management # RabbitMQ для тестов
   variables:
     POSTGRES_DB: $POSTGRES_DB
     POSTGRES_USER: $POSTGRES_USER
