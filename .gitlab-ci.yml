@@ -3,63 +3,59 @@ stages:
   - test
   - deploy
 
+variables:
+  POSTGRES_DB: fastapi_itm_test
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  TEST_DB_HOST: postgres
+  TEST_DB_PORT: 5432
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_USER: guest
+  RABBITMQ_PASS: guest
+
 # Build job: Сборка Docker-образа
 build-job:
   stage: build
   script:
     # Собираем Docker-образ
     - docker build -t app_fastapi_itm .
-    # Сохраняем образ как tar-артефакт
-    - docker save app_fastapi_itm > app_fastapi_itm.tar
-  artifacts:
-    paths:
-      - app_fastapi_itm.tar  # Передаем артефакт в следующие job
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
-  # Текст для коммита:
-  # "Сборка Docker-образа и сохранение артефакта app_fastapi_itm.tar"
 
 # Test job: Запуск тестов
 test-job:
   stage: test
-  dependencies:
-    - build-job  # Используем артефакт из build-job
   services:
     - postgres:17  # PostgreSQL для тестов
+    - rabbitmq:3-management  # RabbitMQ для тестов
   variables:
-    POSTGRES_DB: fastapi_itm_test
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: postgres
+    POSTGRES_DB: $POSTGRES_DB
+    POSTGRES_USER: $POSTGRES_USER
+    POSTGRES_PASSWORD: $POSTGRES_PASSWORD
   before_script:
-    # Очистка старых контейнеров и сетей
+    # Очистка старых контейнеров
     - docker stop test_container || true
     - docker rm -f test_container || true
-    - docker stop test_db || true
-    - docker rm -f test_db || true
-    - docker network prune -f || true
-
-    # Загрузка Docker-образа из артефакта
-    - docker load < app_fastapi_itm.tar
 
     # Установка зависимостей
-    - apt-get update && apt-get install -y postgresql-client curl
+    - apt-get update && apt-get install -y curl netcat
 
     # Ожидание готовности PostgreSQL
-    - until pg_isready -h "$POSTGRES_HOST" -U "$POSTGRES_USER"; do echo "Waiting for PostgreSQL to be ready..."; sleep 2; done
+    - until nc -z "$TEST_DB_HOST" "$TEST_DB_PORT"; do echo "Waiting for PostgreSQL to be ready..."; sleep 2; done
 
     # Создание тестовой базы данных
-    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;"
+    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$TEST_DB_HOST" -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;"
 
     # Восстановление данных из дампа
-    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
+    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$TEST_DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
   script:
     # Запуск тестового контейнера
     - docker run --rm --name test_container \
         -e MODE=TEST \
-        -e DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB" \
+        -e DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$TEST_DB_HOST:$TEST_DB_PORT/$POSTGRES_DB" \
         -v $CI_PROJECT_DIR/app:/app \
         -v $CI_PROJECT_DIR/tests:/app/tests \
-        app_fastapi_itm sh -c "
+        python:3.12 sh -c "
           pip install -r /app/requirements.txt &&
           pytest -v /app/tests"
   after_script:
@@ -68,8 +64,6 @@ test-job:
     - docker rm -f test_container || true
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
-  # Текст для коммита:
-  # "Запуск тестов в изолированном контейнере с использованием PostgreSQL 17.2"
 
 # Deploy job: Развертывание приложения
 deploy-job:
@@ -91,5 +85,3 @@ deploy-job:
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
-  # Текст для коммита:
-  # "Развертывание приложения на сервере через Docker Compose"
