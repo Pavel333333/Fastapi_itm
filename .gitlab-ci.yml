@@ -18,8 +18,6 @@ build-job:
   stage: build
   image: ubuntu:24.04  # Используем Ubuntu 24.04 LTS
   script:
-    # Обновление и установка зависимостей
-    - apt-get update && apt-get install -y docker.io
     # Собираем Docker-образ
     - docker build -t app_fastapi_itm .
   rules:
