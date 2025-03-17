@@ -10,33 +10,15 @@ build-job:
 test-job:
   stage: test
   script:
-    # Чистим все старые контейнеры перед началом
-    - docker stop test_db test_container || true
-    - docker rm -f test_db test_container || true
-    # Проверяем, занят ли порт 5433
+    # Чистим старые контейнеры перед началом
+    - docker stop test_container || true
+    - docker rm -f test_container || true
+    # Запускаем контейнер с приложением и SQLite
     - |
-      if docker run --rm busybox sh -c "nc -z localhost 5433"; then
-        echo "Port 5433 is already in use, trying to free it..."
-        docker stop $(docker ps -q --filter "publish=5433") || true
-        docker rm $(docker ps -a -q --filter "publish=5433") || true
-      fi
-    # Запускаем PostgreSQL с томом для данных и портом 5433
-    - docker run -d --name test_db -p 5433:5432 -v pgdata:/var/lib/postgresql/data postgres:15 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
-    # Проверяем состояние контейнера и ждём готовности
-    - |
-      sleep 2  # Даём время контейнеру стартовать
-      docker ps -a --filter "name=test_db"  # Показываем состояние
-      docker inspect test_db | grep -i "running"  # Проверяем, что он запущен
-      docker logs test_db  # Показываем логи для диагностики
-      timeout 60s sh -c "until docker run --rm postgres:15 pg_isready -h localhost -p 5433 -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; docker ps -a --filter 'name=test_db'; docker inspect test_db | grep -i "error"; exit 1; }
-    # Запускаем контейнер с приложением
-    - docker run -d --name test_container \
+      docker run -d --name test_container \
         -e "MODE=TEST" \
-        -e "TEST_DB_USER=postgres" \
-        -e "TEST_DB_PASSWORD=postgres" \
-        -e "TEST_DB_HOST=host.docker.internal" \
-        -e "TEST_DB_PORT=5433" \
-        -e "TEST_DB_NAME=fastapi_itm_test" \
+        -e "TEST_DB_TYPE=sqlite" \
+        -e "TEST_DB_PATH=/app/test.db" \
         -e "PATH_TO_FILES=/app/documents_for_tests" \
         python:3.11 tail -f /dev/null
     # Копируем файлы проекта в контейнер
@@ -64,9 +46,9 @@ test-job:
     - docker exec test_container sh -c "curl -X POST -F 'file=@/app/tests/test_files/fgh.jpeg' -s http://localhost:8001/files/upload_doc"
     # Запускаем тесты
     - docker exec test_container sh -c "pytest -v /app/tests"
-    # Останавливаем и удаляем контейнеры в конце
-    - docker stop test_db test_container || true
-    - docker rm -f test_db test_container || true
+    # Останавливаем и удаляем контейнер в конце
+    - docker stop test_container || true
+    - docker rm -f test_container || true
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
