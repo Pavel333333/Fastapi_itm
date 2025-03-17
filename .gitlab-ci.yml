@@ -7,16 +7,19 @@ variables:
   POSTGRES_DB: fastapi_itm_test
   POSTGRES_USER: postgres
   POSTGRES_PASSWORD: postgres
-  TEST_DB_HOST: postgres  # Имя хоста для PostgreSQL
-  TEST_DB_PORT: 5432      # Порт PostgreSQL
-  RABBITMQ_HOST: rabbitmq # Имя хоста для RabbitMQ
+  TEST_DB_HOST: postgres
+  TEST_DB_PORT: 5432
+  RABBITMQ_HOST: rabbitmq
   RABBITMQ_USER: guest
   RABBITMQ_PASS: guest
 
 # Build job: Сборка Docker-образа
 build-job:
   stage: build
+  image: ubuntu:24.04  # Используем Ubuntu 24.04 LTS
   script:
+    # Обновление и установка зависимостей
+    - apt-get update && apt-get install -y docker.io
     # Собираем Docker-образ
     - docker build -t app_fastapi_itm .
   rules:
@@ -25,6 +28,7 @@ build-job:
 # Test job: Запуск тестов
 test-job:
   stage: test
+  image: ubuntu:24.04  # Используем Ubuntu 24.04 LTS
   services:
     - postgres:17         # PostgreSQL для тестов
     - rabbitmq:3-management # RabbitMQ для тестов
@@ -37,14 +41,14 @@ test-job:
     - docker stop test_container || true
     - docker rm -f test_container || true
 
-    # Установка зависимостей
-    - apt-get update && apt-get install -y curl netcat
+    # Обновление и установка зависимостей
+    - apt-get update && apt-get install -y curl netcat postgresql-client python3 python3-pip
 
     # Ожидание готовности PostgreSQL
     - until nc -z "$TEST_DB_HOST" "$TEST_DB_PORT"; do echo "Waiting for PostgreSQL to be ready..."; sleep 2; done
 
     # Создание тестовой базы данных
-    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$TEST_DB_HOST" -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;"
+    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$TEST_DB_HOST" -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;" || true
 
     # Восстановление данных из дампа
     - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$TEST_DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
@@ -69,9 +73,10 @@ test-job:
 deploy-job:
   stage: deploy
   environment: production
+  image: ubuntu:24.04  # Используем Ubuntu 24.04 LTS
   script:
     # Настройка SSH-ключа
-    - apk add openssh-client
+    - apt-get update && apt-get install -y openssh-client
     - eval $(ssh-agent -s)
     - cat "$SSH_PRIVATE_KEY" | ssh-add -
     - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
