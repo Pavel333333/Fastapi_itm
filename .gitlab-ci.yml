@@ -12,13 +12,15 @@ test-job:
   script:
     # Удаляем старый контейнер БД, если он остался от предыдущего запуска
     - docker rm -f test_db || true
-    # Запускаем PostgreSQL без фиксированного порта, используем дефолтную сеть
-    - docker run -d --name test_db postgres:17 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
+    # Запускаем PostgreSQL (postgres:16 вместо 17 для стабильности)
+    - docker run -d --name test_db postgres:16 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
     # Проверяем состояние контейнера и ждём готовности через имя внутри сети
     - |
+      sleep 2  # Даём время контейнеру стабилизироваться
       docker ps -a --filter "name=test_db"  # Показываем состояние контейнера
       docker inspect test_db | grep -i "running"  # Проверяем, что он запущен
-      timeout 30s sh -c "until docker run --rm --link test_db:test_db postgres:17 pg_isready -h test_db -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; exit 1; }
+      docker logs test_db  # Показываем логи для диагностики
+      timeout 60s sh -c "until docker run --rm --link test_db:test_db postgres:16 pg_isready -h test_db -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; docker ps -a --filter 'name=test_db'; exit 1; }
     # Удаляем старый контейнер приложения, если он есть
     - docker rm -f test_container || true
     # Запускаем контейнер с приложением, связываем с test_db через --link
