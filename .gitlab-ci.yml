@@ -12,19 +12,18 @@ test-job:
   script:
     - docker compose up -d test_db
     - |
-      until docker run --rm --network fastapi_default postgres:17 pg_isready -h test_db -U postgres; do
+      until docker run --rm --network mynetwork postgres:17 pg_isready -h test_db -U postgres; do
         echo "Waiting for test_db to be ready..."
         sleep 2
       done
-    - docker run --rm -i -e PGPASSWORD=postgres --network fastapi_default postgres:17 psql -h test_db -U postgres -c "CREATE DATABASE fastapi_itm_test;"
-    - docker run --rm -i -e PGPASSWORD=postgres --network fastapi_default postgres:17 psql -h test_db -U postgres -d fastapi_itm_test -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+    - docker run --rm -i -e PGPASSWORD=postgres --network mynetwork postgres:17 psql -h test_db -U postgres -d fastapi_itm_test -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
     - |
       cat $CI_PROJECT_DIR/fastapi_itm_test_dump.sql | \
       grep -v "transaction_timeout" | \
-      docker run --rm -i -e PGPASSWORD=postgres --network fastapi_default postgres:17 psql -h test_db -U postgres -d fastapi_itm_test
+      docker run --rm -i -e PGPASSWORD=postgres --network mynetwork postgres:17 psql -h test_db -U postgres -d fastapi_itm_test
     - |
       docker rm -f test_container || true
-      docker run -d --name test_container --network fastapi_default \
+      docker run -d --name test_container --network mynetwork \
         -e "MODE=TEST" \
         -e "DB_USER=postgres" \
         -e "DB_PASSWORD=postgres" \
