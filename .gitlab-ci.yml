@@ -47,10 +47,13 @@ test-job:
       docker exec test_container sh -c "mkdir -p /app/documents_for_tests"
       docker exec test_container sh -c "apt-get update && apt-get install -y python3-pip netcat-openbsd curl && pip install -r /requirements.txt && pip install pytest uvicorn"
       docker exec test_container sh -c "ls -la /app/api/endpoints.py || echo 'endpoints.py not found'"
+      docker exec test_container sh -c "python -c 'from app.api.endpoints import router; print(\"Endpoints imported successfully\")' || echo 'Failed to import endpoints.py'"  # Проверка импорта
       docker exec -d test_container sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level debug > /tmp/uvicorn.log 2>&1"
       sleep 5
       if docker exec test_container nc -z localhost 8001; then
         echo "FastAPI server is ready!"
+        docker exec test_container sh -c "python -c 'from app.main import app; print([r.path for r in app.routes])' > /tmp/routes.log"  # Вывод маршрутов
+        docker exec test_container sh -c "cat /tmp/routes.log"
       else
         echo "FastAPI server failed to start!"
         docker exec test_container sh -c "cat /tmp/uvicorn.log"
@@ -60,6 +63,7 @@ test-job:
       if [ "$response_code" -ne 200 ]; then
         echo "Upload endpoint not responding correctly: $response_code"
         docker exec test_container sh -c "cat /tmp/uvicorn.log"
+        docker exec test_container sh -c "cat /tmp/routes.log"
         exit 1
       fi
       docker exec test_container sh -c "pytest -v /app/tests"
