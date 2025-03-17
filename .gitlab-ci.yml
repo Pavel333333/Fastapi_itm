@@ -3,70 +3,93 @@ stages:
   - test
   - deploy
 
-variables:
-  POSTGRES_DB: fastapi_itm_test
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: postgres
-  TEST_DB_HOST: postgres
-  TEST_DB_PORT: 5432
-  RABBITMQ_HOST: rabbitmq
-  RABBITMQ_USER: guest
-  RABBITMQ_PASS: guest
-
-# Сборка Docker-образа
+# Build job: Сборка Docker-образа
 build-job:
   stage: build
   script:
+    # Собираем Docker-образ
     - docker build -t app_fastapi_itm .
+    # Сохраняем образ как tar-артефакт
+    - docker save app_fastapi_itm > app_fastapi_itm.tar
   artifacts:
     paths:
-      - app_fastapi_itm.tar
+      - app_fastapi_itm.tar  # Передаем артефакт в следующие job
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
+  # Текст для коммита:
+  # "Сборка Docker-образа и сохранение артефакта app_fastapi_itm.tar"
 
-# Запуск тестов
+# Test job: Запуск тестов
 test-job:
   stage: test
   dependencies:
-    - build-job
+    - build-job  # Используем артефакт из build-job
   services:
-    - postgres:17
-    - rabbitmq:3-management
+    - postgres:17  # PostgreSQL для тестов
   variables:
-    POSTGRES_DB: $POSTGRES_DB
-    POSTGRES_USER: $POSTGRES_USER
-    POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+    POSTGRES_DB: fastapi_itm_test
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
   before_script:
+    # Очистка старых контейнеров и сетей
+    - docker stop test_container || true
+    - docker rm -f test_container || true
+    - docker stop test_db || true
+    - docker rm -f test_db || true
+    - docker network prune -f || true
+
+    # Загрузка Docker-образа из артефакта
     - docker load < app_fastapi_itm.tar
+
+    # Установка зависимостей
     - apt-get update && apt-get install -y postgresql-client curl
+
+    # Ожидание готовности PostgreSQL
     - until pg_isready -h "$POSTGRES_HOST" -U "$POSTGRES_USER"; do echo "Waiting for PostgreSQL to be ready..."; sleep 2; done
+
+    # Создание тестовой базы данных
     - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;"
+
+    # Восстановление данных из дампа
     - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
   script:
-    - docker run --rm --network host \
+    # Запуск тестового контейнера
+    - docker run --rm --name test_container \
+        -e MODE=TEST \
+        -e DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB" \
         -v $CI_PROJECT_DIR/app:/app \
         -v $CI_PROJECT_DIR/tests:/app/tests \
-        -e MODE=TEST \
-        -e DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$TEST_DB_HOST:$TEST_DB_PORT/$POSTGRES_DB" \
-        -e RABBITMQ_URL="amqp://$RABBITMQ_USER:$RABBITMQ_PASS@$RABBITMQ_HOST:5672//" \
         app_fastapi_itm sh -c "
           pip install -r /app/requirements.txt &&
           pytest -v /app/tests"
+  after_script:
+    # Очистка после выполнения job
+    - docker stop test_container || true
+    - docker rm -f test_container || true
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
+  # Текст для коммита:
+  # "Запуск тестов в изолированном контейнере с использованием PostgreSQL 17.2"
 
-# Развертывание приложения
+# Deploy job: Развертывание приложения
 deploy-job:
   stage: deploy
   environment: production
   script:
+    # Настройка SSH-ключа
     - apk add openssh-client
     - eval $(ssh-agent -s)
     - cat "$SSH_PRIVATE_KEY" | ssh-add -
     - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
+
+    # Копирование файлов на сервер
     - scp $CI_PROJECT_DIR/docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"
+
+    # Перезапуск приложения
     - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
+  # Текст для коммита:
+  # "Развертывание приложения на сервере через Docker Compose"
