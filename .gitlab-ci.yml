@@ -3,61 +3,70 @@ stages:
   - test
   - deploy
 
-# Переменные для удобства (можно также использовать GitLab Variables)
 variables:
-  TEST_DB_NAME: $TEST_DB_NAME
-  TEST_DB_USER: $TEST_DB_USER
-  TEST_DB_PASSWORD: $TEST_DB_PASSWORD
-  TEST_DB_HOST: "test_db"  # Указано, что TEST_DB_HOST заменён на test_db
-  TEST_DB_PORT: "5432"
+  POSTGRES_DB: fastapi_itm_test
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  TEST_DB_HOST: postgres
+  TEST_DB_PORT: 5432
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_USER: guest
+  RABBITMQ_PASS: guest
 
-# Job для сборки Docker-образа
+# Сборка Docker-образа
 build-job:
   stage: build
-  image: docker:24.0
-  services:
-    - docker:24.0-dind
   script:
-    - docker build -t app_fastapi_itm:latest -f Dockerfile .
-    - docker save app_fastapi_itm:latest > app_fastapi_itm.tar  # Сохраняем образ для передачи
+    - docker build -t app_fastapi_itm .
   artifacts:
     paths:
-      - app_fastapi_itm.tar  # Передаём образ в следующие job
+      - app_fastapi_itm.tar
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
-# Job для запуска тестов
+# Запуск тестов
 test-job:
   stage: test
-  image: docker:24.0
-  variables:
-    MODE: "TEST"
-    TEST_DB_TYPE: "sqlite"
-    TEST_DB_PATH: "/tmp/test.db"
-  before_script:
-    - docker load < app_fastapi_itm.tar
-  script:
-    - docker run -d --name test_container -e MODE=TEST -e TEST_DB_TYPE=sqlite -e TEST_DB_PATH=/tmp/test.db app_fastapi_itm:latest tail -f /dev/null
-    - docker cp app/tests/test_files/. test_container:/doc/documents_for_tests/
-    - docker exec test_container pip install pytest pytest-asyncio
-    - docker exec test_container pytest -v /doc/app/tests/test_api.py
-    - docker stop test_container
-    - docker rm test_container
   dependencies:
     - build-job
+  services:
+    - postgres:17
+    - rabbitmq:3-management
+  variables:
+    POSTGRES_DB: $POSTGRES_DB
+    POSTGRES_USER: $POSTGRES_USER
+    POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+  before_script:
+    - docker load < app_fastapi_itm.tar
+    - apt-get update && apt-get install -y postgresql-client curl
+    - until pg_isready -h "$POSTGRES_HOST" -U "$POSTGRES_USER"; do echo "Waiting for PostgreSQL to be ready..."; sleep 2; done
+    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;"
+    - PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f $CI_PROJECT_DIR/fastapi_itm_test_dump.sql
+  script:
+    - docker run --rm --network host \
+        -v $CI_PROJECT_DIR/app:/app \
+        -v $CI_PROJECT_DIR/tests:/app/tests \
+        -e MODE=TEST \
+        -e DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$TEST_DB_HOST:$TEST_DB_PORT/$POSTGRES_DB" \
+        -e RABBITMQ_URL="amqp://$RABBITMQ_USER:$RABBITMQ_PASS@$RABBITMQ_HOST:5672//" \
+        app_fastapi_itm sh -c "
+          pip install -r /app/requirements.txt &&
+          pytest -v /app/tests"
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
-# Job для развёртывания (упрощённая версия)
+# Развертывание приложения
 deploy-job:
   stage: deploy
-  image: docker:24.0
+  environment: production
   script:
-    - echo "Развёртывание на сервер (здесь должен быть реальный код деплоя)"
-    - docker load < app_fastapi_itm.tar
-    - docker tag app_fastapi_itm:latest myregistry/app_fastapi_itm:$CI_COMMIT_SHA
-    - echo "Образ готов для деплоя: myregistry/app_fastapi_itm:$CI_COMMIT_SHA"
-  dependencies:
-    - test-job  # Деплой зависит от успешных тестов
+    - apk add openssh-client
+    - eval $(ssh-agent -s)
+    - cat "$SSH_PRIVATE_KEY" | ssh-add -
+    - mkdir -p ~/.ssh && ssh-keyscan -H 176.123.165.243 >> ~/.ssh/known_hosts
+    - scp $CI_PROJECT_DIR/docker-compose.yml admin@176.123.165.243:/home/admin/fastapi_itm/
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo DATABASE_URL=\$DATABASE_URL > .env-not-dev"
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && echo RABBITMQ_URL=\$RABBITMQ_URL >> .env-not-dev"
+    - ssh admin@176.123.165.243 "cd /home/admin/fastapi_itm && docker compose down && docker compose up -d --build"
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
