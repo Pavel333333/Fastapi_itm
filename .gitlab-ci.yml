@@ -12,22 +12,23 @@ test-job:
   script:
     # Удаляем старый контейнер БД, если он остался от предыдущего запуска
     - docker rm -f test_db || true
-    # Запускаем PostgreSQL без привязки порта, в дефолтной сети
-    - docker run -d --name test_db postgres:17 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
-    # Проверяем, что контейнер запустился, и ждём готовности
+    # Запускаем PostgreSQL с портом 5433 на хосте, чтобы избежать конфликта с 5432
+    - docker run -d --name test_db -p 5433:5432 postgres:17 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fastapi_itm_test
+    # Проверяем состояние контейнера и ждём готовности
     - |
-      docker logs test_db  # Показываем логи сразу после запуска
-      timeout 30s sh -c "until docker run --rm --link test_db:test_db postgres:17 pg_isready -h test_db -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; exit 1; }
+      docker ps -a --filter "name=test_db"  # Показываем состояние контейнера
+      docker inspect test_db | grep -i "running"  # Проверяем, что он запущен
+      timeout 30s sh -c "until docker run --rm postgres:17 pg_isready -h localhost -p 5433 -U postgres; do echo 'Waiting for test_db...'; sleep 2; done" || { echo "Test DB failed to start!"; docker logs test_db; exit 1; }
     # Удаляем старый контейнер приложения, если он есть
     - docker rm -f test_container || true
-    # Запускаем контейнер с приложением, связываем с test_db через --link
+    # Запускаем контейнер с приложением, указываем порт 5433 для БД
     - |
-      docker run -d --name test_container --link test_db:test_db \
+      docker run -d --name test_container \
         -e "MODE=TEST" \
         -e "TEST_DB_USER=postgres" \
         -e "TEST_DB_PASSWORD=postgres" \
-        -e "TEST_DB_HOST=test_db" \
-        -e "TEST_DB_PORT=5432" \
+        -e "TEST_DB_HOST=host.docker.internal" \
+        -e "TEST_DB_PORT=5433" \
         -e "TEST_DB_NAME=fastapi_itm_test" \
         -e "PATH_TO_FILES=/app/documents_for_tests" \
         python:3.11 tail -f /dev/null
