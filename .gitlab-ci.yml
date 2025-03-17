@@ -10,7 +10,8 @@ build-job:
 test-job:
   stage: test
   script:
-    - docker compose up -d test_db --no-env
+    - touch .env-not-dev  # Создаём пустой .env-not-dev, чтобы Compose не ругался
+    - docker compose up -d test_db
     - |
       until docker run --rm --network mynetwork postgres:17 pg_isready -h test_db -U postgres; do
         echo "Waiting for test_db to be ready..."
