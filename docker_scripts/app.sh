@@ -24,6 +24,7 @@ if [ "$MODE" = "TEST" ]; then
 else
     echo "Waiting for main database to be ready..."
     wait-for-it $DB_HOST:$DB_PORT --timeout=60 -- alembic upgrade head
+fi
 
 if [ $? -ne 0 ]; then
     echo "Alembic migrations failed"
