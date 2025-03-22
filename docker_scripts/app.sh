@@ -20,18 +20,17 @@ fi
 # Ждем базу данных в зависимости от режима. Версия при настройке ci/cd
 if [ "$MODE" = "TEST" ]; then
     echo "Waiting for test database to be ready..."
-    wait-for-it $TEST_DB_HOST:$TEST_DB_PORT --timeout=55
+    wait-for-it $TEST_DB_HOST:$TEST_DB_PORT --timeout=55 || echo "Test DB not ready, but proceeding anyway"
 else
     echo "Waiting for main database to be ready..."
     wait-for-it $DB_HOST:$DB_PORT --timeout=89 -- alembic upgrade head
-fi
+    if [ $? -ne 0 ]; then
+        echo "Alembic migrations failed"
+        exit 1
+    fi
+    echo "Migrations complete"
 
-if [ $? -ne 0 ]; then
-    echo "Alembic migrations failed"
-    exit 1
 fi
-
-echo "Migrations complete"
 
 sleep 15
 

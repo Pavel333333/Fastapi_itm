@@ -19,21 +19,21 @@ build-job:
 test-job:
   stage: test
   script:
-    - docker compose down -v  # Очистка перед запуском, если что-то осталось
-    - docker build --no-cache -t app_fastapi_itm .  # Добавлено: пересборка образа для актуального app.sh
+    - docker compose down -v
+    - docker build --no-cache -t app_fastapi_itm .  # Пересборка образа для актуального app.sh
     - echo "TEST_DB_USER=$TEST_DB_USER, TEST_DB_PASSWORD=$TEST_DB_PASSWORD, TEST_DB_NAME=$TEST_DB_NAME"  # Проверка переменных
-    - MODE=$MODE TEST_DB_HOST=$TEST_DB_HOST TEST_DB_PORT=$TEST_DB_PORT TEST_DB_NAME=$TEST_DB_NAME TEST_DB_USER=$TEST_DB_USER TEST_DB_PASSWORD=$TEST_DB_PASSWORD DB_HOST=$DB_HOST DB_PORT=$DB_PORT DB_NAME=$DB_NAME DB_USER=$DB_USER DB_PASSWORD=$DB_PASSWORD RABBITMQ_HOST=$RABBITMQ_HOST RABBITMQ_USER=$RABBITMQ_USER RABBITMQ_PASS=$RABBITMQ_PASS APP_URL=$APP_URL docker compose up -d test_db app_fastapi celery
-    - sleep 89
-    - docker ps -a  # Проверяем состояние контейнеров
-    - docker exec container_fastapi_app apt-get update && docker exec container_fastapi_app apt-get install -y netcat-openbsd  # Установка netcat
-    - docker exec container_fastapi_app bash -c "timeout 5 bash -c 'until </dev/tcp/container_fastapi_db_test/5434; do sleep 1; done' && echo 'Port 5434 accessible' || echo 'Port 5434 not accessible'"  # Проверка порта
-    - docker exec container_fastapi_celery bash -c "timeout 5 bash -c 'until </dev/tcp/container_fastapi_rabbitmq/5672; do sleep 1; done' && echo 'Port 5672 accessible' || echo 'Port 5672 not accessible'"  # Проверка порта RabbitMQ
-    - docker exec container_fastapi_celery nc -zv container_fastapi_rabbitmq 5672
-    - docker logs container_fastapi_app  # Логи app
-    - docker logs container_fastapi_celery  # Логи celery
+    - MODE=$MODE TEST_DB_HOST=$TEST_DB_HOST TEST_DB_PORT=$TEST_DB_PORT TEST_DB_NAME=$TEST_DB_NAME TEST_DB_USER=$TEST_DB_USER TEST_DB_PASSWORD=$TEST_DB_PASSWORD DB_HOST=$DB_HOST DB_PORT=$DB_PORT DB_NAME=$DB_NAME DB_USER=$DB_USER DB_PASSWORD=$DB_PASSWORD RABBITMQ_HOST=$RABBITMQ_HOST RABBITMQ_USER=$RABBITMQ_USER RABBITMQ_PASS=$RABBITMQ_PASS RABBITMQ_VHOST=$RABBITMQ_VHOST APP_URL=$APP_URL docker compose up -d test_db app_fastapi
+    - docker run -d --name temp_celery --network mynetwork -e RABBITMQ_HOST=$RABBITMQ_HOST -e RABBITMQ_USER=$RABBITMQ_USER -e RABBITMQ_PASS=$RABBITMQ_PASS -e RABBITMQ_VHOST=$RABBITMQ_VHOST celery_image celery -A app.api.celery_tasks worker --loglevel=info -b "amqp://$RABBITMQ_USER:$RABBITMQ_PASS@$RABBITMQ_HOST:5672/$RABBITMQ_VHOST"  # Временный контейнер для Celery
+    - sleep 120  # Увеличено время ожидания
+    - docker ps -a
+    - docker exec container_fastapi_app bash -c "timeout 10 bash -c 'until </dev/tcp/container_fastapi_db_test/5434; do sleep 1; done' && echo 'Port 5434 accessible' || echo 'Port 5434 not accessible'"  # Проверка порта базы
+    - docker exec temp_celery bash -c "timeout 10 bash -c 'until </dev/tcp/container_fastapi_rabbitmq/5672; do sleep 1; done' && echo 'Port 5672 accessible' || echo 'Port 5672 not accessible'"  # Проверка порта RabbitMQ
+    - docker logs container_fastapi_app
+    - docker logs temp_celery
     - if [ "$(docker inspect -f '{{.State.Running}}' container_fastapi_app)" != "true" ]; then echo "App container not running"; exit 1; fi
     - docker exec container_fastapi_app pytest -s -v
-    - docker compose down -v  # Очистка после тестов
+    - docker compose down -v
+    - docker stop temp_celery && docker rm temp_celery  # Очистка временного контейнера
   variables:
     MODE: "TEST"
     TEST_DB_HOST: "container_fastapi_db_test"
