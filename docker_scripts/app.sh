@@ -12,9 +12,18 @@ else
     echo "wait-for-it уже установлен."
 fi
 
-# Ждем, пока база данных будет доступна
-echo "Waiting for database to be ready..."
-wait-for-it $DB_HOST:$DB_PORT --timeout=60 -- alembic upgrade head
+## Ждем, пока база данных будет доступна
+## Прошлая версия
+#echo "Waiting for database to be ready..."
+#wait-for-it $DB_HOST:$DB_PORT --timeout=60 -- alembic upgrade head
+
+# Ждем базу данных в зависимости от режима. Версия при настройке ci/cd
+if [ "$MODE" = "TEST" ]; then
+    echo "Waiting for test database to be ready..."
+    wait-for-it $TEST_DB_HOST:$TEST_DB_PORT --timeout=60 -- alembic upgrade head
+else
+    echo "Waiting for main database to be ready..."
+    wait-for-it $DB_HOST:$DB_PORT --timeout=60 -- alembic upgrade head
 
 if [ $? -ne 0 ]; then
     echo "Alembic migrations failed"
