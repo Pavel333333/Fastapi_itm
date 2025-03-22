@@ -22,7 +22,7 @@ test-job:
     - docker compose down -v  # Очистка перед запуском, если что-то осталось
     - docker compose up -d test_db app_fastapi celery
     - sleep 21
-    - pytest tests/
+    - docker exec container_fastapi_app pytest tests/
     - docker compose down -v  # Очистка после тестов
   variables:
     MODE: "TEST"
