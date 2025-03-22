@@ -40,7 +40,6 @@ test-job:
     RABBITMQ_USER: "admin"
     RABBITMQ_PASS: "admin"
     APP_URL: "http://localhost:3333"
-    CELERY_BROKER_URL: "amqp://admin:admin@container_fastapi_rabbitmq:5672/"
   tags:
     - fastapi_itm
   rules:
@@ -56,7 +55,7 @@ deploy-job:
     DB_HOST: "container_fastapi_db"
     DB_PORT: "5433"
     DB_NAME: "fastapi_itm_db"
-    RABBITMQ_HOST: "container_fastapi_rabbitmq"
+    RABBITMQ_HOST: "container_fastapi_rabbitmq/fastapi_itm_vhost"
     RABBITMQ_USER: "admin"
     RABBITMQ_PASS: "admin"
     APP_URL: "http://localhost:3333"
