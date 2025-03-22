@@ -16,7 +16,11 @@ RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'pavel')
 RABBITMQ_PASS = os.getenv('RABBITMQ_PASS', 'pavel')
 RABBITMQ_VHOST = os.getenv('RABBITMQ_VHOST', '')  # Добавлена переменная для vhost
 
-celery_app = Celery('celery_fastapi_itm', broker=f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672//', backend='rpc://')
+# Формируем broker URL с учётом vhost, если он задан
+broker_url = f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672/{RABBITMQ_VHOST}'
+celery_app = Celery('celery_fastapi_itm', broker=broker_url, backend='rpc://')
+
+# celery_app = Celery('celery_fastapi_itm', broker=f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672//', backend='rpc://')
 
 celery_app.conf.update(task_always_eager=True, task_get_db_session=get_db_sync_session)
 
