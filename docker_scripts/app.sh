@@ -20,10 +20,10 @@ fi
 # Ждем базу данных в зависимости от режима. Версия при настройке ci/cd
 if [ "$MODE" = "TEST" ]; then
     echo "Waiting for test database to be ready..."
-    wait-for-it $TEST_DB_HOST:$TEST_DB_PORT --timeout=89 -- alembic upgrade head
+    wait-for-it $TEST_DB_HOST:$TEST_DB_PORT --timeout=55
 else
     echo "Waiting for main database to be ready..."
-    wait-for-it $DB_HOST:$DB_PORT --timeout=89 -- alembic upgrade head
+    wait-for-it $DB_HOST:$DB_PORT --timeout=55 -- alembic upgrade head
 fi
 
 if [ $? -ne 0 ]; then

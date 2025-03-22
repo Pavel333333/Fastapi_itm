@@ -105,6 +105,7 @@ services:
       - RABBITMQ_HOST=${RABBITMQ_HOST}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
     volumes:
       - shared_images:/doc/documents
     networks:
