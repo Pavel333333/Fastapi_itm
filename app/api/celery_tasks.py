@@ -14,6 +14,7 @@ import pika
 RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
 RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'pavel')
 RABBITMQ_PASS = os.getenv('RABBITMQ_PASS', 'pavel')
+RABBITMQ_VHOST = os.getenv('RABBITMQ_VHOST', '')  # Добавлена переменная для vhost
 
 celery_app = Celery('celery_fastapi_itm', broker=f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672//', backend='rpc://')
 

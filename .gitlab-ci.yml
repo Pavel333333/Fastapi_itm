@@ -20,9 +20,12 @@ test-job:
   stage: test
   script:
     - docker compose down -v  # Очистка перед запуском, если что-то осталось
+    - docker build -t app_fastapi_itm .  # Добавлено: пересборка образа для актуального app.sh
     - MODE=$MODE TEST_DB_HOST=$TEST_DB_HOST TEST_DB_PORT=$TEST_DB_PORT TEST_DB_NAME=$TEST_DB_NAME TEST_DB_USER=$TEST_DB_USER TEST_DB_PASSWORD=$TEST_DB_PASSWORD DB_HOST=$DB_HOST DB_PORT=$DB_PORT DB_NAME=$DB_NAME DB_USER=$DB_USER DB_PASSWORD=$DB_PASSWORD RABBITMQ_HOST=$RABBITMQ_HOST RABBITMQ_USER=$RABBITMQ_USER RABBITMQ_PASS=$RABBITMQ_PASS APP_URL=$APP_URL docker compose up -d test_db app_fastapi celery
     - sleep 89
     - docker ps -a  # Проверяем состояние контейнеров
+    - docker exec container_fastapi_app nc -zv container_fastapi_db_test 5434 || echo "Port 5434 not accessible"
+    - docker exec container_fastapi_celery nc -zv container_fastapi_rabbitmq 5672
     - docker logs container_fastapi_app  # Логи app
     - docker logs container_fastapi_celery  # Логи celery
     - if [ "$(docker inspect -f '{{.State.Running}}' container_fastapi_app)" != "true" ]; then echo "App container not running"; exit 1; fi
@@ -39,6 +42,7 @@ test-job:
     RABBITMQ_HOST: "container_fastapi_rabbitmq"
     RABBITMQ_USER: "admin"
     RABBITMQ_PASS: "admin"
+    RABBITMQ_VHOST: "fastapi_itm_vhost"
     APP_URL: "http://localhost:3333"
   tags:
     - fastapi_itm
