@@ -23,7 +23,7 @@ TEST_FILES_DIR = BASE_DIR / "tests" / "test_files"
     (str(TEST_FILES_DIR / 'd10c58e.jpeg'), 'd10c58e.jpeg', 200),
     (str(TEST_FILES_DIR / 'SOLID.jpg'), 'SOLID.jpg', 413),
 ])
-async def test_upload_doc_file_too_large(url, file_name, status_code, ac: AsyncClient):
+async def test_upload_doc_file_too_large(url, file_name, status_code, ac: AsyncClient, app_url: str):
 
     async with aiofiles.open(url, 'rb') as f:
         file_data: bytes = await f.read()
@@ -33,7 +33,7 @@ async def test_upload_doc_file_too_large(url, file_name, status_code, ac: AsyncC
     file.name = file_name
     content_type, _ = mimetypes.guess_type(file_name)
 
-    response = await ac.post('http://localhost:8001/files/upload_doc', files={'file': (file_name, file, content_type)})
+    response = await ac.post(f'{app_url}/files/upload_doc', files={'file': (file_name, file, content_type)})
 
     assert response.status_code == status_code
 
@@ -43,7 +43,7 @@ async def test_upload_doc_file_too_large(url, file_name, status_code, ac: AsyncC
     (str(TEST_FILES_DIR / 'Untitled Document 1'), 'Untitled Document 1', 415),
     (str(TEST_FILES_DIR / 'Основные команды Linux'), 'Основные команды Linux', 415),
 ])
-async def test_upload_doc_file_image(url, file_name, status_code, ac: AsyncClient):
+async def test_upload_doc_file_image(url, file_name, status_code, ac: AsyncClient, app_url: str):
 
     async with aiofiles.open(url, 'rb') as f:
         file_data: bytes = await f.read()
@@ -53,7 +53,7 @@ async def test_upload_doc_file_image(url, file_name, status_code, ac: AsyncClien
 
     content_type, _ = mimetypes.guess_type(file_name)
 
-    response = await ac.post('http://localhost:8001/files/upload_doc',
+    response = await ac.post(f'{app_url}/files/upload_doc',
                              files={'file': (file_name, file_data, content_type)})
 
     assert response.status_code == status_code
@@ -66,7 +66,7 @@ async def test_upload_doc_file_image(url, file_name, status_code, ac: AsyncClien
     (str(TEST_FILES_DIR / 'dbc582da9e391cca96f4ad0c978154f7.png'),
      'dbc582da9e391cca96f4ad0c978154f7.png', 200, True),
 ])
-async def test_upload_doc_check_add_file_to_db(url, file_name, status_code, must_in_db, ac: AsyncClient):
+async def test_upload_doc_check_add_file_to_db(url, file_name, status_code, must_in_db, ac: AsyncClient, app_url: str):
 
     async with aiofiles.open(url, 'rb') as f:
         file_data: bytes = await f.read()
@@ -75,7 +75,7 @@ async def test_upload_doc_check_add_file_to_db(url, file_name, status_code, must
     file.name = file_name
     content_type, _ = mimetypes.guess_type(file_name)
 
-    response = await ac.post('http://localhost:8001/files/upload_doc',
+    response = await ac.post(f'{app_url}/files/upload_doc',
                              files={'file': (file_name, file, content_type)})
 
     async for db in get_db_async_session():
@@ -93,7 +93,7 @@ async def test_upload_doc_check_add_file_to_db(url, file_name, status_code, must
     (5, 204),
     (10, 404),
 ])
-async def test_doc_delete_file_from_db(id: int, status_code, ac: AsyncClient):
+async def test_doc_delete_file_from_db(id: int, status_code, ac: AsyncClient, app_url: str):
 
     url_files: list = []
 
@@ -103,7 +103,7 @@ async def test_doc_delete_file_from_db(id: int, status_code, ac: AsyncClient):
         if elem:
             url_files.append(elem.path)
 
-    response = await ac.delete(f'http://localhost:8001/files/doc_delete/{id}')
+    response = await ac.delete(f'{app_url}/files/doc_delete/{id}')
 
     async for db in get_db_async_session():
         query = await db.execute(select(Document).where(Document.id == id))
@@ -122,9 +122,9 @@ async def test_doc_delete_file_from_db(id: int, status_code, ac: AsyncClient):
     (2, True),
     (3, True),
 ])
-async def test_insert_text_in_db(id, text_load_to_db, ac: AsyncClient):
+async def test_insert_text_in_db(id, text_load_to_db, ac: AsyncClient, app_url: str):
 
-    response = await ac.post('http://localhost:8001/files/doc_analyze', json={'id': id})
+    response = await ac.post(f'{app_url}/files/doc_analyze', json={'id': id})
 
     with get_db_sync_session() as db:
         query = db.execute(select(DocumentText).where(DocumentText.id == id))
@@ -136,8 +136,8 @@ async def test_insert_text_in_db(id, text_load_to_db, ac: AsyncClient):
 @pytest.mark.parametrize("id", [
     (1), (2), (3),
 ])
-async def test_get_text_from_db(id, ac: AsyncClient):
+async def test_get_text_from_db(id, ac: AsyncClient, app_url: str):
 
-    response = await ac.post(f'http://localhost:8001/files/get_text/{id}')
+    response = await ac.post(f'{app_url}/files/get_text/{id}')
 
     assert response is not None

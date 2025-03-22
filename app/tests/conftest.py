@@ -1,3 +1,4 @@
+import os
 
 import pytest
 import pytest_asyncio
@@ -24,6 +25,10 @@ async def ac():
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as ac:
         yield ac
         await ac.aclose() # у Шумейко этого нет
+
+@pytest.fixture(scope='session')
+def app_url():
+    return os.getenv("APP_URL", "http://localhost:8001")  # Дефолт для локального запуска
 
 # @pytest.fixture(scope='function')
 # def tc():
