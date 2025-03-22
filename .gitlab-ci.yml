@@ -21,8 +21,10 @@ test-job:
   script:
     - docker compose down -v  # Очистка перед запуском, если что-то осталось
     - docker compose up -d test_db app_fastapi celery
-    - sleep 21
-    - docker exec container_fastapi_app pytest tests/
+    - sleep 55
+    - docker ps -a  # Проверяем состояние контейнеров
+    - if [ "$(docker inspect -f '{{.State.Running}}' container_fastapi_app)" != "true" ]; then echo "App container not running"; exit 1; fi
+    - docker exec container_fastapi_app pytest -s -v
     - docker compose down -v  # Очистка после тестов
   variables:
     MODE: "TEST"
