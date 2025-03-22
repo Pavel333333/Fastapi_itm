@@ -1,0 +1,19 @@
+uvicorn main:app --port 8001 --reload
+alembic revision --autogenerate -m 'first create tables Docs Docs_text'
+alembic upgrade head
+pip freeze > requirements
+sudo systemctl status rabbitmq-server
+sudo -i -u postgres psql
+celery -A app.api.celery_tasks worker --loglevel=info
+docker
+
+git init
+git add .
+git status
+git commit -m 'Commit text'
+git push -u origin master
+docker build .
+docker run -p 9000:8001 image id
+docker compose build
+docker compose up
+docker compose down
