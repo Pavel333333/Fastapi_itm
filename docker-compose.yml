@@ -91,6 +91,17 @@ services:
 #    env_file:
 #      - .env-not-dev  # Для локального запуска
     environment:
+      - MODE=${MODE}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - TEST_DB_HOST=${TEST_DB_HOST}
+      - TEST_DB_PORT=${TEST_DB_PORT}
+      - TEST_DB_USER=${TEST_DB_USER}
+      - TEST_DB_PASSWORD=${TEST_DB_PASSWORD}
+      - TEST_DB_NAME=${TEST_DB_NAME}
       - RABBITMQ_HOST=${RABBITMQ_HOST}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
