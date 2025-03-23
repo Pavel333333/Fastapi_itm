@@ -18,24 +18,21 @@ test-job:
     - docker compose down -v
     - docker build --no-cache -t app_fastapi_itm .
     - echo "TEST_DB_USER=$TEST_DB_USER, TEST_DB_PASSWORD=$TEST_DB_PASSWORD, TEST_DB_NAME=$TEST_DB_NAME"
-    - MODE=$MODE TEST_DB_HOST=$TEST_DB_HOST TEST_DB_PORT=$TEST_DB_PORT TEST_DB_NAME=$TEST_DB_NAME TEST_DB_USER=$TEST_DB_USER TEST_DB_PASSWORD=$TEST_DB_PASSWORD DB_HOST=$DB_HOST DB_PORT=$DB_PORT DB_NAME=$DB_NAME DB_USER=$DB_USER DB_PASSWORD=$DB_PASSWORD RABBITMQ_HOST=$RABBITMQ_HOST RABBITMQ_USER=$RABBITMQ_USER RABBITMQ_PASS=$RABBITMQ_PASS RABBITMQ_VHOST=$RABBITMQ_VHOST APP_URL=$APP_URL docker compose up -d test_db app_fastapi
-    - docker rm -f temp_celery || true
-    - docker run -d --name temp_celery --network mynetwork -e MODE=$MODE -e TEST_DB_HOST=$TEST_DB_HOST -e TEST_DB_PORT=$TEST_DB_PORT -e TEST_DB_NAME=$TEST_DB_NAME -e TEST_DB_USER=$TEST_DB_USER -e TEST_DB_PASSWORD=$TEST_DB_PASSWORD -e DB_HOST=$DB_HOST -e DB_PORT=$DB_PORT -e DB_NAME=$DB_NAME -e DB_USER=$DB_USER -e DB_PASSWORD=$DB_PASSWORD -e RABBITMQ_HOST=$RABBITMQ_HOST -e RABBITMQ_USER=$RABBITMQ_USER -e RABBITMQ_PASS=$RABBITMQ_PASS -e RABBITMQ_VHOST=$RABBITMQ_VHOST -e APP_URL=$APP_URL -e CELERY_BROKER_URL="amqp://admin:admin@container_fastapi_rabbitmq:5672/fastapi_itm_vhost" celery_image celery -A app.api.celery_tasks worker --loglevel=info
-    - sleep 55
+    - MODE=$MODE TEST_DB_HOST=$TEST_DB_HOST TEST_DB_PORT=$TEST_DB_PORT TEST_DB_NAME=$TEST_DB_NAME TEST_DB_USER=$TEST_DB_USER TEST_DB_PASSWORD=$TEST_DB_PASSWORD DB_HOST=$DB_HOST DB_PORT=$DB_PORT DB_NAME=$DB_NAME DB_USER=$DB_USER DB_PASSWORD=$DB_PASSWORD RABBITMQ_HOST=$RABBITMQ_HOST RABBITMQ_USER=$RABBITMQ_USER RABBITMQ_PASS=$RABBITMQ_PASS RABBITMQ_VHOST=$RABBITMQ_VHOST APP_URL=$APP_URL docker compose up -d test_db app_fastapi container_fastapi_celery
+    - sleep 5  # Минимальная задержка
     - docker ps -a
     - docker logs container_fastapi_db_test
     - docker exec container_fastapi_app bash -c "timeout 10 bash -c 'until </dev/tcp/container_fastapi_db_test/5432; do sleep 1; done' && echo 'Port 5432 accessible' || echo 'Port 5432 not accessible'"
-    - docker exec temp_celery bash -c "timeout 10 bash -c 'until </dev/tcp/container_fastapi_rabbitmq/5672; do sleep 1; done' && echo 'Port 5672 accessible' || echo 'Port 5672 not accessible'"
+    - docker exec container_fastapi_celery bash -c "timeout 10 bash -c 'until </dev/tcp/container_fastapi_rabbitmq/5672; do sleep 1; done' && echo 'Port 5672 accessible' || echo 'Port 5672 not accessible'"
     - docker logs container_fastapi_app
-    - docker logs temp_celery
+    - docker logs container_fastapi_celery
     - if [ "$(docker inspect -f '{{.State.Running}}' container_fastapi_app)" != "true" ]; then echo "App container not running"; exit 1; fi
     - docker exec container_fastapi_app pytest -s -v
     - docker compose down -v
-    - docker stop temp_celery && docker rm temp_celery
   variables:
     MODE: "TEST"
     TEST_DB_HOST: "container_fastapi_db_test"
-    TEST_DB_PORT: "5432"  # Исправлен порт
+    TEST_DB_PORT: "5432"
     TEST_DB_NAME: "fastapi_itm_test"
     TEST_DB_USER: "$TEST_DB_USER"
     TEST_DB_PASSWORD: "$TEST_DB_PASSWORD"
