@@ -17,7 +17,6 @@ test-job:
   script:
     - docker compose down -v
     - docker build --no-cache -t app_fastapi_itm .
-    - docker run --rm app_fastapi_itm ls -la /home/pavel/dev/fastapi_itm/docker_scripts  # Проверка содержимого
     - echo "TEST_DB_USER=$TEST_DB_USER, TEST_DB_PASSWORD=$TEST_DB_PASSWORD, TEST_DB_NAME=$TEST_DB_NAME"
     - MODE=$MODE TEST_DB_HOST=$TEST_DB_HOST TEST_DB_PORT=$TEST_DB_PORT TEST_DB_NAME=$TEST_DB_NAME TEST_DB_USER=$TEST_DB_USER TEST_DB_PASSWORD=$TEST_DB_PASSWORD DB_HOST=$DB_HOST DB_PORT=$DB_PORT DB_NAME=$DB_NAME DB_USER=$DB_USER DB_PASSWORD=$DB_PASSWORD RABBITMQ_HOST=$RABBITMQ_HOST RABBITMQ_USER=$RABBITMQ_USER RABBITMQ_PASS=$RABBITMQ_PASS RABBITMQ_VHOST=$RABBITMQ_VHOST APP_URL=$APP_URL docker compose up -d --force-recreate test_db app_fastapi celery
     - sleep 10
@@ -27,10 +26,6 @@ test-job:
     - docker exec container_fastapi_celery bash -c "timeout 10 bash -c 'until </dev/tcp/container_fastapi_rabbitmq/5672; do sleep 1; done' && echo 'Port 5672 accessible' || echo 'Port 5672 not accessible'"
     - docker logs container_fastapi_app
     - docker logs container_fastapi_celery
-    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/docker_scripts"
-    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/documents_for_tests"
-    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/documents"
-    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/app/tests/test_files"
     - docker exec container_fastapi_app bash -c "echo \$PWD"
     - docker exec container_fastapi_app bash -c "psql -U $TEST_DB_USER -d $TEST_DB_NAME -h $TEST_DB_HOST -p $TEST_DB_PORT -c 'SELECT * FROM documents;'"
     - docker exec container_fastapi_app pytest -s -v

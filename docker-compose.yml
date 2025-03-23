@@ -56,8 +56,7 @@ services:
     build:  # этот ключ указывает Docker Compose, что необходимо построить образ для данного сервиса на основе Dockerfile.
       context: .  # путь к контексту сборки (build context) текущая директория, то есть искать докер нужно в корне проекта
     container_name: container_fastapi_app
-    command: ["/home/pavel/dev/fastapi_itm/docker_scripts/app.sh"]
-    # command: ["/doc/docker_scripts/app.sh"]
+    command: ["/doc/docker_scripts/app.sh"]
 #    env_file:
 #      - .env-not-dev  # Для локального запуска
     environment:
@@ -81,7 +80,7 @@ services:
     ports:
       - "3333:8000" # первая цифра внешний порт, вторая - какой порт слушается внутри контейнера
     volumes:
-      - shared_images:/home/pavel/dev/fastapi_itm/documents
+      - shared_images:/doc/documents
     networks:
       - mynetwork
 
@@ -90,8 +89,7 @@ services:
     build:
       context: .
     container_name: container_fastapi_celery
-    command: ["/home/pavel/dev/fastapi_itm/docker_scripts/celery.sh"]
-    # command: ["/doc/docker_scripts/celery.sh"]
+    command: ["/doc/docker_scripts/celery.sh"]
 #    env_file:
 #      - .env-not-dev  # Для локального запуска
     environment:
