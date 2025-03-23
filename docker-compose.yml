@@ -39,6 +39,8 @@ services:
       - "5434:5432"  # Отдельный порт, чтобы не конфликтовать с основной базой
     networks:
       - mynetwork
+    profiles:
+      - test  # Запускается только с профилем test
 
 #  rabbitmq:
 #    image: rabbitmq:3-management

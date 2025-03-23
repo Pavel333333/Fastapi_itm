@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -26,11 +26,11 @@ class Settings(BaseSettings):
         return (f'postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}@'
                 f'{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}')
 
-    TEST_DB_USER: str
-    TEST_DB_PASSWORD: str
-    TEST_DB_HOST: str
-    TEST_DB_PORT: int
-    TEST_DB_NAME: str
+    TEST_DB_USER: Optional[str] = None
+    TEST_DB_PASSWORD: Optional[str] = None
+    TEST_DB_HOST: Optional[str] = None
+    TEST_DB_PORT: Optional[int] = None
+    TEST_DB_NAME: Optional[str] = None
 
 
     @property
