@@ -75,8 +75,7 @@ async def test_upload_doc_check_add_file_to_db(url, file_name, status_code, must
     file.name = file_name
     content_type, _ = mimetypes.guess_type(file_name)
 
-    response = await ac.post(f'{app_url}/files/upload_doc',
-                             files={'file': (file_name, file, content_type)})
+    response = await ac.post(f'{app_url}/files/upload_doc', files={'file': (file_name, file, content_type)})
 
     async for db in get_db_async_session():
         query = await db.execute(select(Document).where(Document.path == f'/home/pavel/dev/fastapi_itm/'
