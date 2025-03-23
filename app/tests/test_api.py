@@ -78,8 +78,7 @@ async def test_upload_doc_check_add_file_to_db(url, file_name, status_code, must
     response = await ac.post(f'{app_url}/files/upload_doc', files={'file': (file_name, file, content_type)})
 
     async for db in get_db_async_session():
-        query = await db.execute(select(Document).where(Document.path == f'/home/pavel/dev/fastapi_itm/'
-                                                                         f'documents_for_tests/{file_name}'))
+        query = await db.execute(select(Document).where(Document.path == f'{BASE_DIR.parent}/documents_for_tests/{file_name}'))
         existing_elem = query.scalars().first()
         assert (existing_elem is not None) == must_in_db
 
