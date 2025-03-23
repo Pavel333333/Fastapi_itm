@@ -81,6 +81,8 @@ services:
       - "3333:8000" # первая цифра внешний порт, вторая - какой порт слушается внутри контейнера
     volumes:
       - shared_images:/doc/documents
+    depends_on:
+      - test_db
     networks:
       - mynetwork
 
@@ -111,5 +113,7 @@ services:
       - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672/${RABBITMQ_VHOST}
     volumes:
       - shared_images:/doc/documents
+    depends_on:
+      - test_db
     networks:
       - mynetwork

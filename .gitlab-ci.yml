@@ -19,7 +19,7 @@ test-job:
     - docker build --no-cache -t app_fastapi_itm .
     - echo "TEST_DB_USER=$TEST_DB_USER, TEST_DB_PASSWORD=$TEST_DB_PASSWORD, TEST_DB_NAME=$TEST_DB_NAME"
     - MODE=$MODE TEST_DB_HOST=$TEST_DB_HOST TEST_DB_PORT=$TEST_DB_PORT TEST_DB_NAME=$TEST_DB_NAME TEST_DB_USER=$TEST_DB_USER TEST_DB_PASSWORD=$TEST_DB_PASSWORD DB_HOST=$DB_HOST DB_PORT=$DB_PORT DB_NAME=$DB_NAME DB_USER=$DB_USER DB_PASSWORD=$DB_PASSWORD RABBITMQ_HOST=$RABBITMQ_HOST RABBITMQ_USER=$RABBITMQ_USER RABBITMQ_PASS=$RABBITMQ_PASS RABBITMQ_VHOST=$RABBITMQ_VHOST APP_URL=$APP_URL docker compose up -d test_db app_fastapi celery
-    - sleep 5
+    - sleep 10  # Увеличиваем до 10 секунд для стабильности
     - docker ps -a
     - docker logs container_fastapi_db_test
     - docker exec container_fastapi_app bash -c "timeout 10 bash -c 'until </dev/tcp/container_fastapi_db_test/5432; do sleep 1; done' && echo 'Port 5432 accessible' || echo 'Port 5432 not accessible'"
@@ -27,6 +27,7 @@ test-job:
     - docker logs container_fastapi_app
     - docker logs container_fastapi_celery
     - if [ "$(docker inspect -f '{{.State.Running}}' container_fastapi_app)" != "true" ]; then echo "App container not running"; exit 1; fi
+    - if [ "$(docker inspect -f '{{.State.Running}}' container_fastapi_celery)" != "true" ]; then echo "Celery container not running"; exit 1; fi
     - docker exec container_fastapi_app pytest -s -v
     - docker compose down -v
   variables:
