@@ -80,7 +80,7 @@ services:
     ports:
       - "3333:8000" # первая цифра внешний порт, вторая - какой порт слушается внутри контейнера
     volumes:
-      - shared_images:/home/pavel/dev/fastapi_itm
+      - ./:/home/pavel/dev/fastapi_itm  # Монтируем проект с хоста
     working_dir: /home/pavel/dev/fastapi_itm
     networks:
       - mynetwork
@@ -111,7 +111,7 @@ services:
       - RABBITMQ_VHOST=${RABBITMQ_VHOST}
       - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672/${RABBITMQ_VHOST}
     volumes:
-      - shared_images:/home/pavel/dev/fastapi_itm
+      - ./:/home/pavel/dev/fastapi_itm  # Монтируем проект с хоста
     working_dir: /home/pavel/dev/fastapi_itm
     networks:
       - mynetwork
