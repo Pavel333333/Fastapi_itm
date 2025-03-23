@@ -74,7 +74,9 @@ services:
       - RABBITMQ_HOST=${RABBITMQ_HOST}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST}
       - APP_URL=${APP_URL}
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672/${RABBITMQ_VHOST}
     ports:
       - "3333:8000" # первая цифра внешний порт, вторая - какой порт слушается внутри контейнера
     volumes:
@@ -105,6 +107,8 @@ services:
       - RABBITMQ_HOST=${RABBITMQ_HOST}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST}
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672/${RABBITMQ_VHOST}
     volumes:
       - shared_images:/doc/documents
     networks:
