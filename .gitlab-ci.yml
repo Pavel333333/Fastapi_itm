@@ -27,7 +27,6 @@ test-job:
     - docker logs container_fastapi_app
     - docker logs container_fastapi_celery
     - docker exec container_fastapi_app bash -c "echo \$PWD"
-    - docker exec container_fastapi_app bash -c "psql -U $TEST_DB_USER -d $TEST_DB_NAME -h $TEST_DB_HOST -p $TEST_DB_PORT -c 'SELECT * FROM documents;'"
     - docker exec container_fastapi_app pytest -s -v
     - docker compose down -v
   variables:
