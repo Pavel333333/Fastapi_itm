@@ -1,8 +1,12 @@
 FROM python:3.12
 
-RUN mkdir /doc
+#RUN mkdir /doc
 
-WORKDIR /doc
+#WORKDIR /doc
+
+# Создаём директорию и устанавливаем её как рабочую
+RUN mkdir -p /home/pavel/dev/fastapi_itm
+WORKDIR /home/pavel/dev/fastapi_itm
 
 COPY requirements.txt .
 

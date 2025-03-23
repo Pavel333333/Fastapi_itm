@@ -26,12 +26,12 @@ test-job:
     - docker exec container_fastapi_celery bash -c "timeout 10 bash -c 'until </dev/tcp/container_fastapi_rabbitmq/5672; do sleep 1; done' && echo 'Port 5672 accessible' || echo 'Port 5672 not accessible'"
     - docker logs container_fastapi_app
     - docker logs container_fastapi_celery
-    - docker exec container_fastapi_app bash -c "ls -la /doc/docker_scripts"  # Проверяем скрипты
-    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/documents_for_tests"  # Проверяем путь для TEST
-    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/documents"  # Проверяем путь для DEV
-    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/app/tests/test_files"  # Проверяем исходники
-    - docker exec container_fastapi_app bash -c "echo \$PWD"  # Проверяем рабочую директорию
-    - docker exec container_fastapi_app bash -c "psql -U $TEST_DB_USER -d $TEST_DB_NAME -h $TEST_DB_HOST -p $TEST_DB_PORT -c 'SELECT * FROM documents;'"  # Проверяем базу
+    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/docker_scripts"
+    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/documents_for_tests"
+    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/documents"
+    - docker exec container_fastapi_app bash -c "ls -la /home/pavel/dev/fastapi_itm/app/tests/test_files"
+    - docker exec container_fastapi_app bash -c "echo \$PWD"
+    - docker exec container_fastapi_app bash -c "psql -U $TEST_DB_USER -d $TEST_DB_NAME -h $TEST_DB_HOST -p $TEST_DB_PORT -c 'SELECT * FROM documents;'"
     - docker exec container_fastapi_app pytest -s -v
     - docker compose down -v
   variables:
