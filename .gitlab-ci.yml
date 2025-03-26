@@ -44,7 +44,7 @@ test-job:
     RABBITMQ_HOST: "container_fastapi_rabbitmq"
     RABBITMQ_USER: "admin"
     RABBITMQ_PASS: "admin"
-    RABBITMQ_VHOST: "fastapi_itm_vhost"
+    # RABBITMQ_VHOST: "fastapi_itm_vhost"
     APP_URL: "http://localhost:8000"
   tags:
     - fastapi_itm
@@ -72,7 +72,7 @@ deploy-job:
     RABBITMQ_HOST: "container_fastapi_rabbitmq"
     RABBITMQ_USER: "admin"
     RABBITMQ_PASS: "admin"
-    RABBITMQ_VHOST: "fastapi_itm_vhost"
+    # RABBITMQ_VHOST: "fastapi_itm_vhost"
     APP_URL: "http://localhost:3333"
   tags:
     - fastapi_itm
