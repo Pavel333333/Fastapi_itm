@@ -15,7 +15,8 @@ RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
 RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'pavel')
 RABBITMQ_PASS = os.getenv('RABBITMQ_PASS', 'pavel')
 
-celery_app = Celery('celery_fastapi_itm', broker=f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672//', backend='rpc://')
+celery_app = Celery('celery_fastapi_itm', broker=f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672//',
+                    backend='rpc://', broker_connection_retry_on_startup=True)
 
 celery_app.conf.update(task_always_eager=True, task_get_db_session=get_db_sync_session)
 
